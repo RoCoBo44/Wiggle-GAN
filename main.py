@@ -1,4 +1,6 @@
-import argparse, os, torch
+import argparse
+import os
+import torch
 from GAN import GAN
 from CGAN import CGAN
 from LSGAN import LSGAN
@@ -9,6 +11,7 @@ from WGAN_GP import WGAN_GP
 from infoGAN import infoGAN
 from EBGAN import EBGAN
 from BEGAN import BEGAN
+from MyACGAN import MyACGAN
 
 """parsing and configuration"""
 def parse_args():
@@ -16,9 +19,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('--gan_type', type=str, default='GAN',
-                        choices=['GAN', 'CGAN', 'infoGAN', 'ACGAN', 'EBGAN', 'BEGAN', 'WGAN', 'WGAN_GP', 'DRAGAN', 'LSGAN'],
+                        choices=['GAN', 'CGAN', 'infoGAN', 'ACGAN', 'EBGAN', 'BEGAN', 'WGAN', 'WGAN_GP', 'DRAGAN', 'LSGAN', 'MyACGAN'],
                         help='The type of GAN')
-    parser.add_argument('--dataset', type=str, default='mnist', choices=['mnist', 'fashion-mnist', 'cifar10', 'cifar100', 'svhn', 'stl10', 'lsun-bed'],
+    parser.add_argument('--dataset', type=str, default='mnist', choices=['mnist', 'fashion-mnist', 'cifar10', 'cifar100', 'svhn', 'stl10', 'lsun-bed', '4cam'],
                         help='The name of dataset')
     parser.add_argument('--split', type=str, default='', help='The split flag for svhn and stl10')
     parser.add_argument('--epoch', type=int, default=50, help='The number of epochs to run')
@@ -34,6 +37,7 @@ def parse_args():
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--gpu_mode', type=bool, default=True)
     parser.add_argument('--benchmark_mode', type=bool, default=True)
+    parser.add_argument('--cameras', type=int, default=2)
 
     return check_args(parser.parse_args())
 
@@ -96,10 +100,12 @@ def main():
         gan = LSGAN(args)
     elif args.gan_type == 'BEGAN':
         gan = BEGAN(args)
+    elif args.gan_type == 'MyACGAN':
+        gan = MyACGAN(args)
     else:
         raise Exception("[!] There is no option for " + args.gan_type)
 
-        # launch the graph in a session
+    # launch the graph in a session
     gan.train()
     print(" [*] Training finished!")
 

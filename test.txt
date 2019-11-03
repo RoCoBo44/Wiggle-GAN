@@ -1,0 +1,1 @@
+python main.py --gan_type MyACGAN --dataset 4cam --batch_size 2

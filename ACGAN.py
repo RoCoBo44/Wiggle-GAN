@@ -101,6 +101,9 @@ class ACGAN(object):
         data = self.data_loader.__iter__().__next__()[0]
 
         # networks init
+        print ("z_dim:",self.z_dim)
+        print("data.shape[1]", data.shape[1])
+        print ("self.input_size:", self.input_size)
         self.G = generator(input_dim=self.z_dim, output_dim=data.shape[1], input_size=self.input_size)
         self.D = discriminator(input_dim=data.shape[1], output_dim=1, input_size=self.input_size)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
@@ -156,18 +159,29 @@ class ACGAN(object):
         for epoch in range(self.epoch):
             self.G.train()
             epoch_start_time = time.time()
-            for iter, (x_, y_) in enumerate(self.data_loader):
+            for iter, (x_, y_) in enumerate(self.data_loader): #Cambiar con el dataset, agarra por batch size
+             #   print(x_) #Supongo que imagenes para labels pero cargadas con -1, solo lo deduzco porque ambas (y_) son de la misma cantidad. tiene 4 dim
+             #   print(len(x_))
+             #   print(y_)  #LABELS
+             #   print(len(y_))
                 if iter == self.data_loader.dataset.__len__() // self.batch_size:
                     break
                 z_ = torch.rand((self.batch_size, self.z_dim))
                 y_vec_ = torch.zeros((self.batch_size, self.class_num)).scatter_(1, y_.type(torch.LongTensor).unsqueeze(1), 1)
+             #   print(y_vec_) #es un conjunto de vectores en donde tiene el valor 1 en el lugar del label correspondiente
+
                 if self.gpu_mode:
                     x_, z_, y_vec_ = x_.cuda(), z_.cuda(), y_vec_.cuda()
 
                 # update D network
                 self.D_optimizer.zero_grad()
 
-                D_real, C_real = self.D(x_)
+             #   print(x_)
+                print ("x_:", x_.shape())
+                D_real, C_real = self.D(x_) ## Es la funcion forward
+             #   print(D_real)   ##no se bien que es pero como se compara con el numero real, o es que tan seguro esta que es el resultado o tendria que dar el resultado
+             #   print(len(D_real))
+             #   print(C_real) ##El vector que dice que tanto piensa que es el numero de salida (por eso se compara con el Y_vec que ya tiene el resultado)
                 D_real_loss = self.BCE_loss(D_real, self.y_real_)
                 C_real_loss = self.CE_loss(C_real, torch.max(y_vec_, 1)[1])
 
@@ -196,7 +210,6 @@ class ACGAN(object):
 
                 G_loss.backward()
                 self.G_optimizer.step()
-
                 if ((iter + 1) % 100) == 0:
                     print("Epoch: [%2d] [%4d/%4d] D_loss: %.8f, G_loss: %.8f" %
                           ((epoch + 1), (iter + 1), self.data_loader.dataset.__len__() // self.batch_size, D_loss.item(), G_loss.item()))
@@ -234,13 +247,18 @@ class ACGAN(object):
                 sample_z_, sample_y_ = sample_z_.cuda(), sample_y_.cuda()
 
             samples = self.G(sample_z_, sample_y_)
-
+        print("normal")
+        print(samples)
         if self.gpu_mode:
-            samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1)
+            samples = samples.cpu().data.numpy().transpose(0, 2, 3, 1) #los valores son la posicion, corre lo segudno a lo ultimo
         else:
             samples = samples.data.numpy().transpose(0, 2, 3, 1)
-
+        print("Trans")
+        print(samples)
         samples = (samples + 1) / 2
+        print(" normaliza ")
+        print(samples)
+
         utils.save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
                           self.result_dir + '/' + self.dataset + '/' + self.model_name + '/' + self.model_name + '_epoch%03d' % epoch + '.png')
 

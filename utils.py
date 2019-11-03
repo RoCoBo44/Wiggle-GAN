@@ -90,7 +90,7 @@ def merge(images, size):
             j = idx // size[1]
             img[j * h:j * h + h, i * w:i * w + w, :] = image
         return img
-    elif images.shape[3]==1:
+    elif images.shape[3]== 1:
         img = np.zeros((h * size[0], w * size[1]))
         for idx, image in enumerate(images):
             i = idx % size[1]

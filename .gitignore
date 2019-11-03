@@ -1,0 +1,8 @@
+__pycache__/*
+Scripts/*
+Include/*
+Lib/*
+logs/*
+models/*
+depth_estimation/MyTest_results/*
+tcl/*
