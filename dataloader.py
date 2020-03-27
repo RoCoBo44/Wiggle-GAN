@@ -1,14 +1,16 @@
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torch.utils.data import Dataset
+from configparser import ConfigParser
 import os
-import torch
+import torch as th
 from PIL import Image
 import numpy as np
+import random
 
-def dataloader(dataset, input_size, batch_size, split='train'):
-    transform = transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor(),
-                                    transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
+def dataloader(dataset, input_size, batch_size,dim,split='train', trans=False):
+    #transform = transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor(),
+    #                                transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))])
     if dataset == 'mnist':
         data_loader = DataLoader(
             datasets.MNIST('data/mnist', train=True, download=True, transform=transform),
@@ -34,8 +36,8 @@ def dataloader(dataset, input_size, batch_size, split='train'):
             datasets.LSUN('data/lsun', classes=['bedroom_train'], transform=transform),
             batch_size=batch_size, shuffle=True)
     elif dataset == '4cam':
-        cams = ImagesDataset(root_dir=os.getcwd() + '\images')
-        data_loader = DataLoader(cams , batch_size=batch_size, shuffle=True)
+        cams = ImagesDataset(root_dir=os.getcwd() + '/Images/ActualDataset', dim=dim, name=split, transform=trans)
+        data_loader = DataLoader(cams, batch_size=batch_size, shuffle=True)
 
     return data_loader
 
@@ -43,7 +45,7 @@ def dataloader(dataset, input_size, batch_size, split='train'):
 class ImagesDataset(Dataset):
     """My dataset."""
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, dim, name, transform):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -51,61 +53,116 @@ class ImagesDataset(Dataset):
                 on a sample.
         """
         self.root_dir = root_dir
-        self.transform = transform
         self.nCameras = 2
+        self.imageDim = dim
+        self.name = name
+        self.parser = ConfigParser()
+        self.parser.read('config.ini')
+        self.transform = transform
 
     def __len__(self):
 
-        oneCameRoot = self.root_dir + '\CAM1'
-        return int(len([name for name in os.listdir(oneCameRoot) if os.path.isfile(os.path.join(oneCameRoot, name))])/2) #por el depth
+        return self.parser.getint(self.name, 'total')
+        #oneCameRoot = self.root_dir + '\CAM1'
+        #return int(len([name for name in os.listdir(oneCameRoot) if os.path.isfile(os.path.join(oneCameRoot, name))])/2) #por el depth
+
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
+        if th.is_tensor(idx):
             idx = idx.tolist()
+        idx = self.parser.get(self.name, str(idx))
+        if self.transform:
+            #values of randomness
 
+            brighness = 1
+            saturation = 1
+            contrast = 1
+            gamma = 1
+            hue = 0
 
-        #folders por camaras / los llamo CAM + nCameras
-        #con el root llego a antes de que se abran las ramas y desde ahi agarro cada foto con el Index que quiero, deph y normal
-        #sample = {}
+            if random.uniform(0, 1) > 0.25: # valor random mayor 0.5
+                brighness = random.uniform(0.4, 1.5)
+                saturation = random.uniform(0, 2)
+                contrast = random.uniform(0.4, 2)
+                gamma = random.uniform(0.7, 1.3)
+                hue = random.uniform(-0.01, 0.01)
+
         sample = np.array([])
         for i in range(0,self.nCameras):
-            oneCameRoot = self.root_dir + '\CAM' + str(i)
+            oneCameRoot = self.root_dir + '/CAM' + str(i)
 
             #foto normal
-            img_name = os.path.join(oneCameRoot, str(idx).zfill(4)+ "_n.png")
-            img = Image.open(img_name).convert('L')
+            img_name = os.path.join(oneCameRoot, "n_" + idx+ ".png")
+            img = Image.open(img_name).convert('RGB')#.convert('L')
+            img = img.resize((self.imageDim,self.imageDim))
+
+            """TRANSFORM"""
+            if self.transform:
+                img = transforms.functional.adjust_gamma(img, gamma)
+                img = transforms.functional.adjust_brightness(img, brighness)
+                img = transforms.functional.adjust_contrast(img, contrast)
+                img = transforms.functional.adjust_saturation(img, saturation)
+                img = transforms.functional.adjust_hue(img, hue)
+                #img.show()
+
             data = np.array(img)
-            data = np.true_divide(data, [255.0], out=None)
-            data = (data * 2) - 1
+            #print(data.shape)
+            data = (data/ 255.0)
+            data = data.transpose(2, 0, 1)
+            #print(data.shape)
+
+            #bright_tform = Grayscale(keep_channels=True)
+            #t_data = bright_tform(th.from_numpy(data))
+            #t_data = t_data.numpy()
+
+
+
+
+            """"PARA VER LO 
+
+            t_data2 = t_data.transpose(1, 2, 0)
+            print(t_data2.shape)
+            t_data2 = t_data2 * 255.0
+            t_data2 = t_data2.astype(np.uint8)
+            print(t_data)
+            outIm = Image.fromarray(t_data2, mode='RGB')
+            outIm.show()
+
+            """""
+
+            ## H W C
+
 
             #foto produndidad
-            img_name = os.path.join(oneCameRoot, str(idx).zfill(4) + "_d.png")
-            img = Image.open(img_name).convert('L') #el LA es para blanco y negro
+            img_name = os.path.join(oneCameRoot, "d_" + idx + ".png")
+            img = Image.open(img_name).convert('RGB')#.convert('L') #el LA es para blanco y negro
+            img = img.resize((self.imageDim, self.imageDim))
             data2 = np.array(img)
             data2 = np.true_divide(data2, [255.0], out=None)
-            data2 = (data2 * 2) - 1 # Para que quede entre -1 y 1
+            data2 = data2.transpose(2, 0, 1)
 
-            """ #Para que se guarde la imagen
-            
-            data3 = ((data + 1) / 2 ) * 255.0
-            outIm = Image.fromarray(data3)
-            if outIm.mode != 'RGB':
-                outIm = outIm.convert('RGB')
+
+            """  #Para que se guarde la imagen
+            data3 = ((data + 1.0) / 2.0 ) * 255.0
+            data3 = data3.transpose(1, 2, 0)
+            data3 = data3.astype(np.uint8)  ## int != uint8
+            print(data3)
+            print(data3.shape)
+            outIm = Image.fromarray(data3,mode='RGB')
+            outIm.show()
             outIm.save(self.root_dir + '\CAM' + "im.png")
+            stop
             """
-
+           # print (data.shape)
             s = np.array([data,data2])
+           # print (s.shape)
 
             if sample.size == 0:
                 sample = s
             else:
                 sample = np.concatenate([sample,s])
-            ##Esto lo trata como un diccionario
-            #sample['Cam' + str(i) + "_d"] = data
-            #sample['Cam' + str(i) + "_n"] = data2
-        if self.transform:
-            sample = self.transform(sample)
 
+        sample = (sample * 2) - 1
         return sample
 
     def __iter__(self):
@@ -114,13 +171,14 @@ class ImagesDataset(Dataset):
             list.append(this.__getitem__(i))
         return iter(list)
 
-"""
-im = ImagesDataset(root_dir=os.getcwd() + '\images')  #os.getcwd()
-print(im.__len__())
-ima = im.__getitem__(idx=1)
-imagen = im.__getitem__(idx=1)
-print(0)
-print(imagen.shape)
-print(1)
-print(imagen['Cam1_n'].shape[1])
-"""
+
+def show_image(t_data):
+
+    #from numpy
+    t_data2 = t_data.transpose(1, 2, 0)
+    t_data2 = t_data2 * 255.0
+    t_data2 = t_data2.astype(np.uint8)
+    outIm = Image.fromarray(t_data2, mode='RGB')
+    outIm.show()
+
+
