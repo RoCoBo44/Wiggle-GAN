@@ -6,3 +6,7 @@ logs/*
 models/*
 depth_estimation/MyTest_results/*
 tcl/*
+data/*
+results/*
+Images/ActualDataset/*
+rcobo@deep.pladema.net

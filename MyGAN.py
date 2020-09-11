@@ -46,16 +46,20 @@ class MyGAN(object):
         self.expandGen = args.expandGen
         self.expandDis = args.expandDis
 
-        self.vis = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visEpoch = utils.VisdomLineTwoPlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visImages = utils.VisdomImagePlotter(env_name='Cobo_depth_Images_' + str(today) + '_' + self.seed)
+        self.wiggle = args.wiggle
+        self.wiggleDepth = args.wiggleDepth
 
-        self.visLossGTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visLossGValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+        self.vis = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visValidation = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visEpoch = utils.VisdomLineTwoPlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visImages = utils.VisdomImagePlotter(env_name='Cobo_Images_' + str(today) + '_' + self.seed)
+        self.visImagesTest = utils.VisdomImagePlotter(env_name='Cobo_ImagesTest_' + str(today) + '_' + self.seed)
 
-        self.visLossDTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visLossDValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visLossGTest = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visLossGValidation = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+
+        self.visLossDTest = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
+        self.visLossDValidation = utils.VisdomLinePlotter(env_name='Cobo_Train-Plots_' + str(today) + '_' + self.seed)
 
 
 
@@ -65,7 +69,11 @@ class MyGAN(object):
 
         self.data_validation = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim,split='validation')
 
-        self.dataprint = next(iter(self.data_validation))[0:self.cantImages]  # Para agarrar varios
+        self.data_Test = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='test')
+
+        self.dataprint = self.data_validation.__iter__().__next__()[
+                         0:self.cantImages]  # next(iter(self.data_Validation))[0:self.cantImages]  # Para agarrar varios
+        self.dataprint_test = self.data_Test.__iter__().__next__()[0:self.cantImages]
 
         self.batch_size = self.batch_size * self.nCameras * (self.nCameras - 1) ## EXPLICADO EN VIDEO es por los frames
         data = self.data_loader.__iter__().__next__()[0]
@@ -132,6 +140,7 @@ class MyGAN(object):
         self.details_hist['G_T_Comp_im'] = []
         self.details_hist['G_T_BCE_fake_real'] = []
         self.details_hist['G_T_CE_Class'] = []
+        self.details_hist['G_zCR'] = []
 
         self.details_hist['G_V_Comp_im'] = []
         self.details_hist['G_V_BCE_fake_real'] = []
@@ -141,6 +150,8 @@ class MyGAN(object):
         self.details_hist['D_T_BCE_fake_real_R'] = []
         self.details_hist['D_T_CE_Class_F'] = []
         self.details_hist['D_T_BCE_fake_real_F'] = []
+        self.details_hist['D_zCR'] = []
+        self.details_hist['D_bCR'] = []
 
         self.details_hist['D_V_CE_Class_R'] = []
         self.details_hist['D_V_BCE_fake_real_R'] = []
@@ -279,7 +290,7 @@ class MyGAN(object):
                     #  GAN Loss
                     D_loss_real_fake = torch.mean(D_fake) - torch.mean(D_real)
                     #  Class Loss
-                    D_loss_Class = self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1]) + self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1])
+                    D_loss_Class =  self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1]) # + self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1])
                     #  bCR Loss
                     D_loss_real = self.MSE(D_real, D_real_bCR )
                     D_loss_fake = self.MSE(D_fake, D_fake_bCR )
@@ -287,13 +298,15 @@ class MyGAN(object):
 
                     #  zCR Loss
                     D_zCR = self.MSE(D_fake, D_fake_aug_zCR )* self.zDisFactor
-                    D_loss = D_zCR + D_loss_Class + D_loss_real_fake + D_bCR
+                    D_loss = D_zCR + D_loss_real_fake + D_bCR + D_loss_Class
 
                     self.train_hist['D_loss_train'].append(D_loss.item())
                     self.details_hist['D_T_CE_Class_R'].append(D_loss_Class.item())
                     self.details_hist['D_T_BCE_fake_real_R'].append(D_loss_real_fake.item())
+                    self.details_hist['D_bCR'].append(D_bCR.item())
+                    self.details_hist['D_zCR'].append(D_zCR.item())
                     self.visLossDTest.plot('Discriminator_losses',
-                                           ['D_T_CE_Class_R', 'D_T_BCE_fake_real_R'], 'train', self.details_hist)
+                                           ['D_T_CE_Class_R', 'D_T_BCE_fake_real_R', 'D_bCR', 'D_zCR'], 'train', self.details_hist)
 
                     D_loss.backward()
                     self.D_optimizer.step()
@@ -324,22 +337,28 @@ class MyGAN(object):
 
                     G_loss = -torch.mean(D_fake)
                     self.details_hist['G_T_BCE_fake_real'].append(G_loss.item())
-                    G_loss_Comp = self.MSE(G_, y_im)
-                    G_loss_Comp_Aug = self.MSE(G_aug, y_im_aug)
+
+                    # loss between images
+                    G_loss_Comp = self.L1(G_, y_im)
+                    G_loss_Comp_Aug = self.L1(G_aug, y_im_aug)
                     G_loss_Dif_Comp = G_loss_Comp + G_loss_Comp_Aug
 
+                    # zCR
                     G_zCR = -self.MSE(G_, G_aug) * self.zGenFactor
+
                     C_fake_loss = self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1])
                     G_loss += G_zCR + G_loss_Dif_Comp + C_fake_loss
 
                     self.details_hist['G_T_Comp_im'].append(G_loss_Dif_Comp.item())
                     self.details_hist['G_T_CE_Class'].append(C_fake_loss.item())
+                    self.details_hist['G_zCR'].append(G_zCR.item())
 
                 else:
-                    G_loss = self.L1(G_,y_im)
+                    G_loss = self.MSE(G_,y_im)
                     self.details_hist['G_T_Comp_im'].append(G_loss.item())
                     self.details_hist['G_T_BCE_fake_real'].append(0)
                     self.details_hist['G_T_CE_Class'].append(0)
+                    self.details_hist['G_zCR'].append(0)
 
                 self.train_hist['G_loss_train'].append(G_loss.item())
                 iterFinTrain += 1
@@ -347,7 +366,7 @@ class MyGAN(object):
                 G_loss.backward()
                 self.G_optimizer.step()
 
-                self.visLossGTest.plot('Generator_losses', ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_T_CE_Class'], 'train',self.details_hist)
+                self.visLossGTest.plot('Generator_losses', ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_T_CE_Class', 'G_zCR'], 'train',self.details_hist)
                 #self.visLossGTest.plot('Generator_losses', ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_T_CE_Class'], 'train',self.details_hist)
                 self.vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
 
@@ -372,7 +391,7 @@ class MyGAN(object):
                 y_ = torch.Tensor(list(map(lambda x: int(x - 1) if (x > 0) else int(x), y_)))
 
                 if iter == self.data_validation.dataset.__len__() * self.nCameras * (self.nCameras - 1) // self.batch_size:
-                    print ("Break")
+                    #print ("Break")
                     break
 
                 # print (y_.type(torch.LongTensor).unsqueeze(1))
@@ -418,15 +437,15 @@ class MyGAN(object):
                     #  GAN Loss
                     D_loss_real_fake = torch.mean(D_fake) - torch.mean(D_real)
                     #  Class Loss
-                    D_loss_Class = self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1]) + self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1])
+                    D_loss_Class = self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1]) #+  self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1])
 
-                    D_loss = D_loss_Class + D_loss_real_fake
+                    D_loss = D_loss_real_fake + D_loss_Class
 
                     self.train_hist['D_loss_validation'].append(D_loss.item())
                     self.details_hist['D_V_CE_Class_R'].append(D_loss_Class.item())
                     self.details_hist['D_V_BCE_fake_real_R'].append(D_loss_real_fake.item())
                     self.visLossDValidation.plot('Discriminator_losses',
-                                           ['D_V_CE_Class_R', 'D_V_BCE_fake_real_R'], 'train', self.details_hist)
+                                           ['D_V_CE_Class_R', 'D_V_BCE_fake_real_R'], 'Validation', self.details_hist)
 
 
                 G_ = self.G(y_vec_, x_im)
@@ -498,9 +517,10 @@ class MyGAN(object):
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
             with torch.no_grad():
-                self.visualize_results((epoch+1))
+                self.visualize_results((epoch + 1), dataprint=self.dataprint, visual=self.visImages)
+                self.visualize_results(epoch + 1, dataprint=self.dataprint_test, visual=self.visImagesTest)
 
-            if epoch % 50 == 0:
+            if epoch % 10 == 0:
                 self.save(str(epoch))
 
         self.train_hist['total_time'].append(time.time() - start_time)
@@ -513,7 +533,7 @@ class MyGAN(object):
                                  self.epoch)
         utils.loss_plot(self.train_hist, os.path.join(self.save_dir, self.dataset, self.model_name), self.model_name)
 
-    def visualize_results(self, epoch, fix=True):
+    def visualize_results(self, epoch, dataprint, visual, fix=True):
         self.G.eval()
 
         if not os.path.exists(self.result_dir + '/' + self.dataset + '/' + self.model_name):
@@ -525,8 +545,7 @@ class MyGAN(object):
         # .zfill(4)
         cantidadIm = self.cantImages
         newSample = None
-        image_frame_dim = int(np.floor(np.sqrt(self.class_num)))
-        for set in self.dataprint:
+        for set in dataprint:
             data1 = set[0]
             # print (data1.shape)
             data = data1
@@ -555,7 +574,7 @@ class MyGAN(object):
             for i in range(len(temp)):
                 temp_y[i] = int(i % self.class_num)
             # print ("tempy", temp_y)
-            self.sample_y_ = torch.zeros((self.class_num * cantidadIm, self.class_num)).scatter_(1, temp_y.type(
+            sample_y_ = torch.zeros((self.class_num * cantidadIm, self.class_num)).scatter_(1, temp_y.type(
                 torch.LongTensor), 1)
 
             # print ("self.sample_y_", self.sample_y_)
@@ -574,6 +593,8 @@ class MyGAN(object):
 
                 samples = self.G(sample_y_, data)
 
+            G_im_outGan = samples
+
             if self.gpu_mode:
                 samples = samples.cpu().data.numpy().transpose(0, 2, 3,
                                                                    1)  # los valores son la posicion, corre lo segudno a lo ultimo
@@ -589,20 +610,51 @@ class MyGAN(object):
             realIm = np.array(realIm)
 
 
+            joined = realIm
 
-            samples = np.concatenate((samples, realIm))
-            if newSample is None:
-                newSample = samples
+            if self.wiggle and self.wiggleDepth > 1:
+                im_aux = G_im_outGan
+                for i in range(0, samples.shape[0]):
+                    index = i
+                    for j in range(0, self.wiggleDepth-1):
+
+                        #print(i,j)
+
+                        if (j == 0 and i == 1):
+                            #para tomar el original
+                            im_aux = G_im_outGan
+                            joined = np.concatenate((joined, samples))
+                        elif(i == 1):
+                            #por el problema de las iteraciones proximas
+                            index = 0
+
+                        #imagen generada
+                        x = im_aux[index].cpu().data.numpy()
+                        x = np.expand_dims(x, axis=0)
+                        x = torch.tensor(x.tolist()).cuda()
+
+                        y = sample_y_[index].unsqueeze(0)
+
+                        im_aux = self.G(y, x)
+
+                        joined = np.concatenate((joined, im_aux.cpu().data.numpy().transpose(0, 2, 3, 1)))
             else:
-                newSample = np.concatenate((newSample, samples))
+                joined = np.concatenate((joined, samples))
+            # sadadas
+
+
+            if newSample is None:
+                newSample = joined
+            else:
+                newSample = np.concatenate((newSample, joined))
 
         newSample = (newSample + 1) / 2
 
-        self.visImages.plot(epoch, newSample, self.class_num+1)
+        visual.plot(epoch, newSample, int(newSample.shape[0]/cantidadIm))
         ##TENGO QUE HACER QUE SAMPLES TENGAN COMO MAXIMO self.class_num * self.class_num
 
-        utils.save_images(newSample[:, :, :, :], [image_frame_dim * cantidadIm , image_frame_dim * (self.class_num+1)],
-                          self.result_dir + '/' + self.dataset + '/' + self.model_name + '/' + self.model_name + '_epoch%04d' % epoch + '.png')
+        #utils.save_images(newSample[:, :, :, :], [image_frame_dim * cantidadIm , image_frame_dim * (self.class_num+1)],
+        #                  self.result_dir + '/' + self.dataset + '/' + self.model_name + '/' + self.model_name + '_epoch%04d' % epoch + '.png')
 
     def show_plot_images(self, images, cols=1, titles=None):
         """Display a list of images in a single figure with matplotlib.
@@ -664,6 +716,9 @@ class MyGAN(object):
 
         self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_' +self.seed_load + '_G.pkl')))
         self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_' +self.seed_load + '_D.pkl')))
+
+    def wiggleEf(self):
+        self.visualize_results(epoch=-1, dataprint=self.dataprint_test, visual=self.visImagesTest)
 
     def rearrengeData(self, Data):
 

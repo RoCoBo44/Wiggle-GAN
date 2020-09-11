@@ -825,16 +825,16 @@ class depth_discriminator(nn.Module):
 class depth_generator_UNet(nn.Module):
     # Network Architecture is exactly same as in infoGAN (https://arxiv.org/abs/1606.03657)
     # Architecture : FC1024_BR-FC7x7x128_BR-(64)4dc2s_BR-(1)4dc2s_S
-    def __init__(self, input_dim=4, output_dim=1, input_shape=3, class_num=10, zdim=1, height=10, width=10):
+    def __init__(self, input_dim=4, output_dim=1, input_shape=3, class_num=10, zdim=1, expand_net=3):
         super(depth_generator_UNet, self).__init__()
         self.input_dim = input_dim + 1
-        self.output_dim = output_dim
+        self.output_dim = output_dim  # por depth +1 (al final no)
         self.class_num = class_num
         # print ("self.output_dim", self.output_dim)
         self.input_shape = list(input_shape)
         self.zdim = zdim
 
-        self.expandNet = 3  # 5
+        self.expandNet = expand_net  # 5
 
         self.input_shape[1] = self.input_dim  # esto cambio despues por colores
 
@@ -853,6 +853,11 @@ class depth_generator_UNet(nn.Module):
         self.up3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
         self.last = lastBlock(8, self.output_dim)
 
+        self.upDep1 = UpBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), pow(2, self.expandNet + 1))
+        self.upDep2 = UpBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 1), pow(2, self.expandNet))
+        self.upDep3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
+        self.lastDep = lastBlock(8, 1)
+
         self.n_size = self._get_conv_output(self.input_shape)
         self.cubic = (self.n_size // 8192)
 
@@ -868,6 +873,13 @@ class depth_generator_UNet(nn.Module):
 
     def forward(self, z, clase, im, imDep):
         ##Hago algo con el z?
+        #print (im.shape)
+        #print (z.shape)
+        #print (z)
+        #imz = torch.repeat_interleave(z, repeats=torch.tensor([2, 2]), dim=1)
+        #print (imz.shape)
+        #print (imz)
+        #sdadsadas
 
         x = torch.cat([im, imDep], 1)
 
@@ -893,26 +905,66 @@ class depth_generator_UNet(nn.Module):
         x2 = self.conv2(x1)  # self.maxpool1(x1))
         x3 = self.conv3(x2)  # self.maxpool2(x2))
         x4 = self.conv4(x3)  # self.maxpool3(x3))
+
         x = self.up1(x4, x3)
         x = self.up2(x, x2)
         x = self.up3(x, x1)
-        x = changeDim(x, im)
+        #x = changeDim(x, im)
         x = self.last(x)
 
-        return x
+        dep = self.upDep1(x4, x3)
+        dep = self.upDep2(dep, x2)
+        dep = self.upDep3(dep, x1)
+        # x = changeDim(x, im)
+        dep = self.lastDep(dep)
+
+        #print(x.shape)
+        #dep = x[:,3,:,:].squeeze().unsqueeze(0).transpose(0,1)
+        x = x[:, :3, :, :]
+
+        return x, dep
 
 
 class depth_discriminator_UNet(discriminator_UNet):
-    def __init__(self, input_dim=1, output_dim=1, input_shape=[2, 2], class_num=10):
+    def __init__(self, input_dim=1, output_dim=1, input_shape=[2, 2], class_num=10, expand_net=2):
         discriminator_UNet.__init__(self, input_dim=input_dim, output_dim=output_dim, input_shape=input_shape,
-                                    class_num=class_num)
+                                    class_num=class_num, expand_net = expand_net)
 
+        self.input_dim = input_dim * 2 + 1 # ya que le doy el origen + mapa de profundidad
         self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet), stride=1, dropout=0.3)
-        self.conv2 = UnetConvBlock(pow(2, self.expandNet), pow(2, self.expandNet + 1), stride=2, dropout=0.5)
-        self.conv3 = UnetConvBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 2), stride=2, dropout=0.4)
+        self.conv2 = UnetConvBlock(pow(2, self.expandNet), pow(2, self.expandNet + 1), stride=2, dropout=0.2)
+        self.conv3 = UnetConvBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 2), stride=2, dropout=0.2)
         self.conv4 = UnetDeSingleConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), stride=2,
                                            dropout=0.3)
 
+        self.input_shape[1] = self.input_dim
         self.n_size = self._get_conv_output(self.input_shape)
 
         utils.initialize_weights(self)
+
+    def forward(self, input, origen, dep):
+        # esto va a cambiar cuando tenga color
+        # if (len(input.shape) <= 3):
+        #    input = input[:, None, :, :]
+        # im = im[:, None, :, :]
+        # print("D in shape",input.shape)
+
+        # print(input.shape)
+        # print("this si X:", x)
+        # print("now shape", x.shape)
+        x = input
+        x = x.type(torch.FloatTensor)
+        x = x.to(device='cuda:0')
+
+        x = torch.cat((x, origen), 1)
+        x = torch.cat((x, dep), 1)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        d = self.dc(x)
+        c = self.cl(x)
+
+        return d, c

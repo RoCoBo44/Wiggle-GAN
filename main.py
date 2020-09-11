@@ -48,11 +48,13 @@ def parse_args():
     parser.add_argument('--cIm', type=int, default=4)
     parser.add_argument('--seedLoad', type=str, default="0000")
     parser.add_argument('--load', type=bool, default=False)
-    parser.add_argument('--zGF', type=int, default=0.5)  # Estos valores estan dados por el paper y lo trabajan con otra red, posiblemente hay que cambiarlos
-    parser.add_argument('--zDF', type=int, default=20)
-    parser.add_argument('--bF', type=int, default=10)
+    parser.add_argument('--zGF', type=float, default=0.2)  # Estos valores estan dados por el paper y lo trabajan con otra red, posiblemente hay que cambiarlos
+    parser.add_argument('--zDF', type=float, default=0.2)
+    parser.add_argument('--bF', type=float, default=0.2)
     parser.add_argument('--expandGen', type=int, default=3)
     parser.add_argument('--expandDis', type=int, default=3)
+    parser.add_argument('--wiggle', type=bool, default=False)
+    parser.add_argument('--wiggleDepth', type=int, default=2)
 
     return check_args(parser.parse_args())
 
@@ -129,12 +131,17 @@ def main():
         raise Exception("[!] There is no option for " + args.gan_type)
 
     # launch the graph in a session
-    gan.train()
-    print(" [*] Training finished!")
+    if (not args.wiggle ):
+        gan.train()
+        print(" [*] Training finished!")
 
-    # visualize learned generator
-    gan.visualize_results(args.epoch)
-    print(" [*] Testing finished!")
+        # visualize learned generator
+        #gan.visualize_results(args.epoch)
+        #print(" [*] Testing finished!")
+
+    else:
+        gan.wiggleEf()
+        print(" [*] Wiggle finished!")
 
 
 if __name__ == '__main__':

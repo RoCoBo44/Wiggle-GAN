@@ -300,7 +300,7 @@ def augmentData(x,y, randomness = 1):
         imgY = Image.fromarray(aumY, mode='RGB')
 
         # Values for augmentation #
-        brighness = random.uniform(0.4, 1.5)* randomness + (1-randomness)
+        brighness = random.uniform(0.7, 1.2)* randomness + (1-randomness)
         saturation = random.uniform(0, 2)* randomness + (1-randomness)
         contrast = random.uniform(0.4, 2)* randomness + (1-randomness)
         gamma = random.uniform(0.7, 1.3)* randomness + (1-randomness)
@@ -335,3 +335,11 @@ def augmentData(x,y, randomness = 1):
         sampleY.append(sy)
 
     return np.array(sampleX),np.array(sampleY)
+
+def RGBtoL (x):
+
+    return x[:,0,:,:].unsqueeze(0).transpose(0,1)
+
+def LtoRGB (x):
+
+    return x.repeat(1, 3, 1, 1)
