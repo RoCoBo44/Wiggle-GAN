@@ -825,18 +825,14 @@ class depth_discriminator(nn.Module):
 class depth_generator_UNet(nn.Module):
     # Network Architecture is exactly same as in infoGAN (https://arxiv.org/abs/1606.03657)
     # Architecture : FC1024_BR-FC7x7x128_BR-(64)4dc2s_BR-(1)4dc2s_S
-    def __init__(self, input_dim=4, output_dim=1, input_shape=3, class_num=10, zdim=1, expand_net=3):
+    def __init__(self, input_dim=4, output_dim=1, class_num=10, expand_net=3):
         super(depth_generator_UNet, self).__init__()
         self.input_dim = input_dim + 1
         self.output_dim = output_dim  # por depth +1 (al final no)
         self.class_num = class_num
         # print ("self.output_dim", self.output_dim)
-        self.input_shape = list(input_shape)
-        self.zdim = zdim
 
         self.expandNet = expand_net  # 5
-
-        self.input_shape[1] = self.input_dim  # esto cambio despues por colores
 
         # Downsampling
         self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet))
@@ -858,20 +854,12 @@ class depth_generator_UNet(nn.Module):
         self.upDep3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
         self.lastDep = lastBlock(8, 1)
 
-        self.n_size = self._get_conv_output(self.input_shape)
-        self.cubic = (self.n_size // 8192)
+
 
         utils.initialize_weights(self)
 
-    def _get_conv_output(self, shape):
-        bs = 1
-        input = Variable(torch.rand(bs, *shape))
-        output_feat = self.conv1(input.squeeze())  ##CAMBIAR
-        n_size = output_feat.data.view(bs, -1).size(1)
-        # print ("n",n_size // 4)
-        return n_size // 4
 
-    def forward(self, z, clase, im, imDep):
+    def forward(self, clase, im, imDep):
         ##Hago algo con el z?
         #print (im.shape)
         #print (z.shape)
@@ -925,10 +913,18 @@ class depth_generator_UNet(nn.Module):
         return x, dep
 
 
-class depth_discriminator_UNet(discriminator_UNet):
-    def __init__(self, input_dim=1, output_dim=1, input_shape=[2, 2], class_num=10, expand_net=2):
-        discriminator_UNet.__init__(self, input_dim=input_dim, output_dim=output_dim, input_shape=input_shape,
-                                    class_num=class_num, expand_net = expand_net)
+class depth_discriminator_UNet(nn.Module):
+    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=10, expand_net=2):
+        super(depth_discriminator_UNet, self).__init__()
+        self.input_dim = input_dim * 2 + 1
+
+        #discriminator_UNet.__init__(self, input_dim=self.input_dim, output_dim=output_dim, input_shape=input_shape,
+        #                            class_num=class_num, expand_net = expand_net)
+
+        self.output_dim = output_dim
+        self.input_shape = list(input_shape)
+        self.class_num = class_num
+        self.expandNet = expand_net
 
         self.input_dim = input_dim * 2 + 1 # ya que le doy el origen + mapa de profundidad
         self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet), stride=1, dropout=0.3)
@@ -940,7 +936,33 @@ class depth_discriminator_UNet(discriminator_UNet):
         self.input_shape[1] = self.input_dim
         self.n_size = self._get_conv_output(self.input_shape)
 
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.n_size, 1024),
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(0.2),
+        )
+
+        self.dc = nn.Sequential(
+            nn.Linear(1024, self.output_dim),
+            # nn.Sigmoid(),
+        )
+        self.cl = nn.Sequential(
+            nn.Linear(1024, self.class_num),
+            nn.Softmax(dim=1),  # poner el que la suma da 1
+        )
+
         utils.initialize_weights(self)
+
+    def _get_conv_output(self, shape):
+        bs = 1
+        input = Variable(torch.rand(bs, *shape))
+        x = input.squeeze()
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        return x.shape[1]
 
     def forward(self, input, origen, dep):
         # esto va a cambiar cuando tenga color

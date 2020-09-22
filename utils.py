@@ -260,8 +260,10 @@ class VisdomImagePlotter(object):
 
         list_images = []
         for image in images:
-            #print (image)
-            list_images.append(image.transpose([2, 0, 1]) * 255)
+            #transforms.ToPILImage()(image)
+            image = (image + 1)/2
+            image = image.detach().numpy() * 255
+            list_images.append(image)
         self.viz.images(
             list_images,
             padding=2,
@@ -280,31 +282,24 @@ def augmentData(x,y, randomness = 1):
     """
 
 
-    sampleX = []
-    sampleY = []
+    sampleX = torch.tensor([])
+    sampleY = torch.tensor([])
 
-    #print(type(y))
-    #print (y.shape)
+    for aumX, aumY in zip(x,y):
 
-    for numpyX, numpyY in zip(x,y):
+        # Preparing to get image # transforms.ToPILImage()(pil_to_tensor.squeeze_(0))
+        aumX = (aumX + 1) / 2
+        aumY = (aumY + 1) / 2
 
-        # Preparing to get image #
-        aumX = numpyX.transpose(1, 2, 0)
-        aumY = numpyY.transpose(1, 2, 0)
-        aumX = (aumX+1)/2 * 255.0
-        aumY = (aumY + 1) / 2 * 255.0
-
-        aumX = aumX.astype(np.uint8)
-        aumY = aumY.astype(np.uint8)
-        imgX = Image.fromarray(aumX, mode='RGB')
-        imgY = Image.fromarray(aumY, mode='RGB')
+        imgX = transforms.ToPILImage()(aumX)
+        imgY = transforms.ToPILImage()(aumY)
 
         # Values for augmentation #
         brighness = random.uniform(0.7, 1.2)* randomness + (1-randomness)
         saturation = random.uniform(0, 2)* randomness + (1-randomness)
         contrast = random.uniform(0.4, 2)* randomness + (1-randomness)
         gamma = random.uniform(0.7, 1.3)* randomness + (1-randomness)
-        hue = random.uniform(-0.01, 0.01)* randomness
+        hue = random.uniform(-0.3, 0.3)* randomness #0.01
 
         imgX = transforms.functional.adjust_gamma(imgX, gamma)
         imgX = transforms.functional.adjust_brightness(imgX, brighness)
@@ -320,21 +315,15 @@ def augmentData(x,y, randomness = 1):
         imgY = transforms.functional.adjust_hue(imgY, hue)
         #imgY.show()
 
-        sx = np.array(imgX)
-        # print(data.shape)
-        sx = ((sx / 255.0)*2)-1
-        sx = sx.transpose(2, 0, 1)
+        sx = transforms.ToTensor()(imgX)
+        sx = (sx * 2)-1
 
-        sy = np.array(imgY)
-        # print(data.shape)
-        sy = ((sy / 255.0)*2)-1
-        sy = sy.transpose(2, 0, 1)
+        sy = transforms.ToTensor()(imgY)
+        sy = (sy * 2)-1
 
-
-        sampleX.append(sx)
-        sampleY.append(sy)
-
-    return np.array(sampleX),np.array(sampleY)
+        sampleX = torch.cat((sampleX, sx.unsqueeze_(0)), 0)
+        sampleY = torch.cat((sampleY, sy.unsqueeze_(0)), 0)
+    return sampleX,sampleY
 
 def RGBtoL (x):
 

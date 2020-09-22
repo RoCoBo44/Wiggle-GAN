@@ -31,12 +31,12 @@ class MyACGAN(object):
         self.gpu_mode = args.gpu_mode
         self.model_name = args.gan_type
         self.input_size = args.input_size
-        self.z_dim = 40
         self.class_num = (args.cameras - 1) * 2  # un calculo que hice en paint
         self.sample_num = self.class_num ** 2
         self.imageDim = args.imageDim
         self.epochVentaja = args.epochV
         self.cantImages = args.cIm
+        self.visdom = args.visdom
 
         random.seed(time.time())
         today = date.today()
@@ -76,17 +76,15 @@ class MyACGAN(object):
                                           split='validation')
         self.data_Test = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='test')
 
-        self.dataprint = self.data_Validation.__iter__().__next__()[
-                         0:self.cantImages]  # next(iter(self.data_Validation))[0:self.cantImages]  # Para agarrar varios
-        self.dataprint_test = self.data_Test.__iter__().__next__()[0:self.cantImages]
+        self.dataprint = self.data_Validation.__iter__().__next__()  # next(iter(self.data_Validation))[0:self.cantImages]  # Para agarrar varios
+        self.dataprint_test = self.data_Test.__iter__().__next__()
 
-        self.batch_size = self.batch_size * self.nCameras * (self.nCameras - 1)  ## EXPLICADO EN VIDEO es por los frames
-        data = self.data_loader.__iter__().__next__()[0]
+        self.batch_size = self.batch_size #* self.nCameras * (self.nCameras - 1)  ## EXPLICADO EN VIDEO es por los frames
+        data = self.data_loader.__iter__().__next__().get('x_im')
 
         # networks init
-        ## estoy muy perdido de como seria la entrada, para mi seria el anchox el alto de cada imagen pero tampoco se como la red se conecta Y alto y acho
-        self.G = depth_generator_UNet(input_dim=4, output_dim=3, input_shape=data.shape, class_num=self.class_num,
-                                      zdim=self.z_dim, expand_net=self.expandGen)
+
+        self.G = depth_generator_UNet(input_dim=4, output_dim=3, class_num=self.class_num, expand_net=self.expandGen)
         # Ese 2 del input es porque es blanco y negro (imINICIO+imANGULO)
         self.D = depth_discriminator_UNet(input_dim=3, output_dim=1, input_shape=data.shape, class_num=self.class_num,
                                           expand_net=self.expandDis)
@@ -111,12 +109,6 @@ class MyACGAN(object):
         utils.print_network(self.D)
         print('-----------------------------------------------')
 
-        # fixed noise & condition
-        self.sample_z_ = torch.zeros((self.sample_num, self.z_dim))
-        for i in range(self.class_num):
-            self.sample_z_[i * self.class_num] = torch.rand(1, self.z_dim)
-            for j in range(1, self.class_num):
-                self.sample_z_[i * self.class_num + j] = self.sample_z_[i * self.class_num]
 
         temp = torch.zeros((self.class_num, 1))
         for i in range(self.class_num):
@@ -128,7 +120,7 @@ class MyACGAN(object):
 
         self.sample_y_ = torch.zeros((self.sample_num, self.class_num)).scatter_(1, temp_y.type(torch.LongTensor), 1)
         if self.gpu_mode:
-            self.sample_z_, self.sample_y_ = self.sample_z_.cuda(), self.sample_y_.cuda()
+             self.sample_y_ = self.sample_y_.cuda()
 
         if (self.toLoad):
             self.load()
@@ -177,14 +169,13 @@ class MyACGAN(object):
         iterIniValidation = 0
         iterFinValidation = 0
 
-        # print("self.batch_size",self.batch_size)
-        self.y_real_, self.y_fake_ = torch.ones(self.batch_size, 1), torch.zeros(self.batch_size, 1)
-        if self.gpu_mode:
-            self.y_real_, self.y_fake_ = self.y_real_.cuda(), self.y_fake_.cuda()
-        # print("y_real_",self.y_real_)
         self.D.train()
         print('training start!!')
         start_time = time.time()
+
+        maxIter = self.data_loader.dataset.__len__() // self.batch_size
+        maxIterVal = self.data_Validation.dataset.__len__() // self.batch_size
+
         for epoch in range(self.epoch):
 
             if (epoch < self.epochVentaja):
@@ -197,54 +188,39 @@ class MyACGAN(object):
 
             for iter, data in enumerate(self.data_loader):  # Cambiar con el dataset, agarra por batch size
 
+                x_im = data.get('x_im')
+                x_dep = data.get('x_dep')
+                y_im = data.get('y_im')
+                y_dep = data.get('y_dep')
+                y_ = data.get('y_')
+                #{'x_im': x1, 'x_dep': x1_dep, 'y_im': x2, 'y_dep': x2_dep, 'y_': torch.tensor(1)}
+
+
+
                 # Aumento mi data
-                x_im, x_dep, y_im, y_, y_dep = self.rearrengeData(data)
                 x_im_aug, y_im_aug = augmentData(x_im, y_im)
-
-                # para que usen Tensor
-                x_im = torch.tensor(x_im.tolist())
-                y_im = torch.tensor(y_im.tolist())
-                x_dep = torch.tensor(x_dep.tolist())
-                y_ = torch.tensor(y_.tolist())
-                x_im_aug = torch.tensor(x_im_aug.tolist())
-                y_im_aug = torch.tensor(y_im_aug.tolist())
-                y_dep = torch.tensor(y_dep.tolist())
-
-                x_im = x_im.type(torch.FloatTensor)
-                y_im = y_im.type(torch.FloatTensor)
-                x_dep = x_dep.type(torch.FloatTensor)
-                y_ = y_.type(torch.FloatTensor)
-                x_im_aug = x_im_aug.type(torch.FloatTensor)
-                y_im_aug = y_im_aug.type(torch.FloatTensor)
-                y_dep = y_dep.type(torch.FloatTensor)
-
-                x_dep = RGBtoL(x_dep)
-                y_dep = RGBtoL(y_dep)
+                x_im_vanilla = x_im
 
                 # x_im  = imagenes normales
                 # x_dep = profundidad de images
                 # y_im  = imagen con el angulo cambiado
                 # y_    = angulo de la imagen = tengo que tratar negativos
 
-                y_ = y_ + (self.nCameras - 1)
-                y_ = torch.Tensor(list(map(lambda x: int(x - 1) if (x > 0) else int(x), y_)))
+                #y_ = torch.Tensor(list(map(lambda x: int(x - 1) if (x > 0) else int(x), y_)))
+
                 # x_im  = torch.Tensor(list(x_im))
                 # x_dep = torch.Tensor(x_dep)
                 # y_im  = torch.Tensor(y_im)
                 # print(y_.shape[0])
-                if iter == self.data_loader.dataset.__len__() * self.nCameras * (self.nCameras - 1) // self.batch_size:
+                if iter >= maxIter:
                     # print ("Break")
                     break
-                z_ = torch.rand((y_.shape[0], self.z_dim))
                 # print (y_.type(torch.LongTensor).unsqueeze(1))
-                y_vec_ = torch.zeros((y_.shape[0], self.class_num)).scatter_(1, y_.type(torch.LongTensor).unsqueeze(1),
-                                                                             1)
+                y_vec_ = torch.zeros((y_.shape[0], self.class_num)).scatter_(1, y_.type(torch.LongTensor).unsqueeze(1),1)
 
                 # print("y_vec_",y_vec_)
-                # print ("z_",z_)
-
                 if self.gpu_mode:
-                    x_im, z_, y_vec_, y_im, x_dep, x_im_aug, y_im_aug, y_dep = x_im.cuda(), z_.cuda(), y_vec_.cuda(), y_im.cuda(), x_dep.cuda(), x_im_aug.cuda(), y_im_aug.cuda(), y_dep.cuda()
+                    x_im, y_vec_, y_im, x_dep, x_im_aug, y_im_aug, y_dep = x_im.cuda(), y_vec_.cuda(), y_im.cuda(), x_dep.cuda(), x_im_aug.cuda(), y_im_aug.cuda(), y_dep.cuda()
                 # update D network
 
                 if not ventaja:
@@ -255,15 +231,16 @@ class MyACGAN(object):
                     D_real, D_clase_real = self.D(y_im, x_im, y_dep)  ## Es la funcion forward `` g(z) x
 
                     # Fake Images
-                    G_, G_dep = self.G(z_, y_vec_, x_im, y_dep)
+                    G_, G_dep = self.G( y_vec_, x_im, y_dep)
                     D_fake, D_clase_fake = self.D(G_, x_im, G_dep)
 
                     # Fake Augmented Images bCR
-                    x_im_aug_bCR, G_aug_bCR = augmentData(x_im.data.cpu().numpy(), G_.data.cpu().numpy())
-                    x_im_aug_bCR = torch.tensor(x_im_aug_bCR.tolist())
-                    G_aug_bCR = torch.tensor(G_aug_bCR.tolist())
-                    x_im_aug_bCR = x_im_aug_bCR.type(torch.FloatTensor)
-                    G_aug_bCR = G_aug_bCR.type(torch.FloatTensor)
+                    x_im_aug_bCR, G_aug_bCR = augmentData(x_im_vanilla, G_.data.cpu())
+                    #x_im_aug_bCR = torch.from_numpy(x_im_aug_bCR).type(torch.FloatTensor)
+                    #G_aug_bCR = torch.from_numpy(G_aug_bCR).type(torch.FloatTensor)
+
+                    #x_im_aug_bCR = x_im_aug_bCR.type(torch.FloatTensor)
+                    #G_aug_bCR = G_aug_bCR.type(torch.FloatTensor)
                     if self.gpu_mode:
                         G_aug_bCR, x_im_aug_bCR = G_aug_bCR.cuda(), x_im_aug_bCR.cuda()
 
@@ -271,7 +248,7 @@ class MyACGAN(object):
                     D_real_bCR, D_real_bCR = self.D(y_im_aug, x_im_aug, y_dep)
 
                     # Fake Augmented Images zCR
-                    G_aug_zCR, G_dep_aug_zCR = self.G(z_, y_vec_, x_im_aug, x_dep)
+                    G_aug_zCR, G_dep_aug_zCR = self.G(y_vec_, x_im_aug, x_dep)
                     D_fake_aug_zCR, D_clase_fake_aug = self.D(G_aug_zCR, x_im_aug, G_dep_aug_zCR)
 
                     # Losses
@@ -305,13 +282,13 @@ class MyACGAN(object):
                 # update G network
                 self.G_optimizer.zero_grad()
 
-                G_, G_dep = self.G(z_, y_vec_, x_im, x_dep)
+                G_, G_dep = self.G(y_vec_, x_im, x_dep)
 
                 if not ventaja:
 
                     # Fake images augmented
 
-                    G_aug, G_dep_aug = self.G(z_, y_vec_, x_im_aug, x_dep)
+                    G_aug, G_dep_aug = self.G(y_vec_, x_im_aug, x_dep)
 
                     D_fake_aug, D_clase_fake_aug = self.D(G_aug, x_im, G_dep_aug)
 
@@ -381,47 +358,33 @@ class MyACGAN(object):
             for iter, data in enumerate(self.data_Validation):
 
                 # Aumento mi data
-                x_im, x_dep, y_im, y_, y_dep = self.rearrengeData(data)
-                # para que usen Tensor
-                x_im = torch.tensor(x_im.tolist())
-                y_im = torch.tensor(y_im.tolist())
-                x_dep = torch.tensor(x_dep.tolist())
-                y_ = torch.tensor(y_.tolist())
-                y_dep = torch.tensor(y_dep.tolist())
-
-                x_im = x_im.type(torch.FloatTensor)
-                y_im = y_im.type(torch.FloatTensor)
-                x_dep = x_dep.type(torch.FloatTensor)
-                y_ = y_.type(torch.FloatTensor)
-                y_dep = y_dep.type(torch.FloatTensor)
-
-                x_dep = RGBtoL(x_dep)
-                y_dep = RGBtoL(y_dep)
+                x_im = data.get('x_im')
+                x_dep = data.get('x_dep')
+                y_im = data.get('y_im')
+                y_dep = data.get('y_dep')
+                y_ = data.get('y_')
                 # x_im  = imagenes normales
                 # x_dep = profundidad de images
                 # y_im  = imagen con el angulo cambiado
                 # y_    = angulo de la imagen = tengo que tratar negativos
 
-                y_ = y_ + (self.nCameras - 1)
-                y_ = torch.Tensor(list(map(lambda x: int(x - 1) if (x > 0) else int(x), y_)))
                 # x_im  = torch.Tensor(list(x_im))
                 # x_dep = torch.Tensor(x_dep)
                 # y_im  = torch.Tensor(y_im)
                 # print(y_.shape[0])
-                if iter == self.data_Validation.dataset.__len__() * self.nCameras * (
-                        self.nCameras - 1) // self.batch_size:
+                if iter == maxIterVal:
                     # print ("Break")
                     break
-                z_ = torch.rand((y_.shape[0], self.z_dim))
                 # print (y_.type(torch.LongTensor).unsqueeze(1))
                 y_vec_ = torch.zeros((y_.shape[0], self.class_num)).scatter_(1, y_.type(torch.LongTensor).unsqueeze(1),
                                                                              1).long()
+
 
                 # print("y_vec_", y_vec_)
                 # print ("z_", z_)
 
                 if self.gpu_mode:
-                    x_im, z_, y_vec_, y_im, x_dep, y_dep = x_im.cuda(), z_.cuda(), y_vec_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
+                    x_im, y_vec_, y_im, x_dep, y_dep = x_im.cuda(), y_vec_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
                 # D network
 
                 if not ventaja:
@@ -429,9 +392,8 @@ class MyACGAN(object):
                     D_real, D_clase_real = self.D(y_im, x_im, y_dep)  ## Es la funcion forward `` g(z) x
 
                     # Fake Images
-                    G_, G_dep = self.G(z_, y_vec_, x_im, x_dep)
+                    G_, G_dep = self.G(y_vec_, x_im, x_dep)
                     D_fake, D_clase_fake = self.D(G_, x_im, G_dep)
-
                     # Losses
                     #  GAN Loss
                     D_loss_real_fake = torch.mean(D_fake) - torch.mean(D_real)
@@ -450,7 +412,7 @@ class MyACGAN(object):
 
                 # G network
 
-                G_, G_dep = self.G(z_, y_vec_, x_im, x_dep)
+                G_, G_dep = self.G(y_vec_, x_im, x_dep)
 
                 if not ventaja:
                     # Fake images
@@ -508,9 +470,6 @@ class MyACGAN(object):
                                ['D_loss_train', 'G_loss_train', 'D_loss_Validation', 'G_loss_Validation'],
                                self.epoch_hist)
 
-            f = open('epochData.pkl', 'wb')
-            pickle.dump(self.epoch_hist, f, -1)
-            f.close()
 
             ## In order to load data
             #f = open('epochData.pkl', 'rb')
@@ -541,16 +500,94 @@ class MyACGAN(object):
     def visualize_results(self, epoch, dataprint, visual, fix=True):
         self.G.eval()
 
-        if not os.path.exists(self.result_dir + '/' + self.dataset + '/' + self.model_name):
-            os.makedirs(self.result_dir + '/' + self.dataset + '/' + self.model_name)
+        #if not os.path.exists(self.result_dir + '/' + self.dataset + '/' + self.model_name):
+        #    os.makedirs(self.result_dir + '/' + self.dataset + '/' + self.model_name)
 
         # print("sample z: ",self.sample_z_,"sample y:", self.sample_y_)
 
         ##Podria hacer un loop
         # .zfill(4)
-        cantidadIm = self.cantImages
-        newSample = None
+        #newSample = None
         #print(dataprint.shape)
+
+        #newSample = torch.tensor([])
+
+        #se que es ineficiente pero lo hago cada 10 epoch nomas
+        newSample = []
+        iter = 1
+        for x_im,x_dep in zip(dataprint.get('x_im'), dataprint.get('x_dep')):
+            if (iter > self.cantImages):
+                break
+
+            #x_im = (x_im + 1) / 2
+            #imgX = transforms.ToPILImage()(x_im)
+            #imgX.show()
+
+            x_im_input = x_im.repeat(2, 1, 1, 1)
+            x_dep_input = x_dep.repeat(2, 1, 1, 1)
+
+
+            temp_y = torch.zeros((self.class_num , 1))
+            for i in range(self.class_num):
+                temp_y[i] = int(i % self.class_num)
+            sample_y_ = torch.zeros((self.class_num , self.class_num)).scatter_(1, temp_y.type(
+                torch.LongTensor), 1)
+
+
+            if self.gpu_mode:
+                sample_y_, x_im_input, x_dep_input = sample_y_.cuda(), x_im_input.cuda(), x_dep_input.cuda()
+
+            G_im, G_dep = self.G(sample_y_, x_im_input, x_dep_input)
+
+            newSample.append(x_im.squeeze(0))
+            newSample.append(x_dep.squeeze(0).expand(3, -1, -1))
+
+
+
+            if self.wiggle:
+                im_aux, im_dep_aux = G_im, G_dep
+                for i in range(0, 2):
+                    index = i
+                    for j in range(0, self.wiggleDepth):
+
+                        # print(i,j)
+
+                        if (j == 0 and i == 1):
+                            # para tomar el original
+                            im_aux, im_dep_aux = G_im, G_dep
+                            newSample.append(G_im.cpu()[0].squeeze(0))
+                            newSample.append(G_im.cpu()[1].squeeze(0))
+                        elif (i == 1):
+                            # por el problema de las iteraciones proximas
+                            index = 0
+
+                        # imagen generada
+
+
+                        x = im_aux[index].unsqueeze(0)
+                        x_dep = im_dep_aux[index].unsqueeze(0)
+
+                        y = sample_y_[i].unsqueeze(0)
+
+                        if self.gpu_mode:
+                            y, x, x_dep = y.cuda(), x.cuda(), x_dep.cuda()
+
+                        im_aux, im_dep_aux = self.G(y, x, x_dep)
+
+                        newSample.append(im_aux.cpu()[0])
+            else:
+
+                newSample.append(G_im.cpu()[0])
+                newSample.append(G_im.cpu()[1])
+                newSample.append(G_dep.cpu()[0].expand(3, -1, -1))
+                newSample.append(G_dep.cpu()[1].expand(3, -1, -1))
+                # sadadas
+
+            iter+=1
+
+
+
+        """""
         for set in dataprint:
             data1 = set[0]
             # print (data1.shape)
@@ -574,7 +611,6 @@ class MyACGAN(object):
 
 
 
-            sample_z_ = torch.rand(cantidadIm * self.class_num, self.z_dim)
             # print ("self.sample_z_.shape", self.sample_z_.shape)
             # for j in range(1, self.class_num):
             #    self.sample_z_[i*self.class_num + j] = self.sample_z_[i*self.class_num]
@@ -596,13 +632,11 @@ class MyACGAN(object):
             #print ("self.sample_y_", sample_y_[0].unsqueeze(0))
 
             if self.gpu_mode:
-                sample_z_, sample_y_ = sample_z_.cuda(), sample_y_.cuda()
+                sample_y_ = sample_y_.cuda()
 
             if fix:
-                """ fixed noise """
-                samples, G_dep = self.G(sample_z_, sample_y_, data, data2)
+                samples, G_dep = self.G(sample_y_, data, data2)
             else:
-                """ random noise """
                 sample_y_ = torch.zeros(self.batch_size, self.class_num).scatter_(1,
                                                                                   torch.randint(0, self.class_num - 1, (
                                                                                       self.batch_size, 1)).type(
@@ -611,7 +645,7 @@ class MyACGAN(object):
                 if self.gpu_mode:
                     sample_z_, sample_y_ = sample_z_.cuda(), sample_y_.cuda()
 
-                samples, G_dep = self.G(sample_z_, sample_y_, data, data2)
+                samples, G_dep = self.G(sample_y_, data, data2)
 
 
             G_im_outGan = samples
@@ -622,6 +656,7 @@ class MyACGAN(object):
                                                                1)  # los valores son la posicion, corre lo segudno a lo ultimo
             else:
                 samples = samples.data.numpy().transpose(0, 2, 3, 1)
+
 
 
             ## TRATO DE PASAR IMAGEN ORIGINAL
@@ -673,7 +708,7 @@ class MyACGAN(object):
 
                         y = sample_y_[i].unsqueeze(0)
 
-                        im_aux, im_dep_aux = self.G(sample_z_, y, x, x_dep)
+                        im_aux, im_dep_aux = self.G(y, x, x_dep)
 
                         joined = np.concatenate((joined, im_aux.cpu().data.numpy().transpose(0, 2, 3, 1)))
             else:
@@ -685,9 +720,9 @@ class MyACGAN(object):
             else:
                 newSample = np.concatenate((newSample, joined))
 
-        newSample = (newSample + 1) / 2
+        """""
 
-        visual.plot(epoch, newSample, int(newSample.shape[0]/cantidadIm))
+        visual.plot(epoch, newSample, int(len(newSample) /self.cantImages))
         ##TENGO QUE HACER QUE SAMPLES TENGAN COMO MAXIMO self.class_num * self.class_num
 
         # utils.save_images(newSample[:, :, :, :], [image_frame_dim * cantidadIm , image_frame_dim * (self.class_num+2)],
@@ -769,7 +804,7 @@ class MyACGAN(object):
 
                     if camaraActual != camaraComparada:
                         # print("frame", frame)
-                        valor_cambio = camaraComparada - camaraActual
+                        valor_cambio = float((camaraComparada - camaraActual))
 
                         s = np.array([frame[2 * camaraActual].numpy(), frame[2 * camaraActual + 1].numpy(),
                                       frame[2 * camaraComparada].numpy(), valor_cambio,
@@ -777,7 +812,6 @@ class MyACGAN(object):
                         # print(s)
                         # outpu[camaraComparada + camaraActual*(self.nCameras+1)] = s
                         outpu.append(s)
-
         output = np.array(outpu)
         np.random.shuffle(output)  # para que no de 1 y uno
         return output[:, 0], output[:, 1], output[:, 2], output[:, 3], output[:, 4]

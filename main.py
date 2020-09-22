@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--benchmark_mode', type=bool, default=True)
     parser.add_argument('--cameras', type=int, default=2)
     parser.add_argument('--imageDim', type=int, default=128)
-    parser.add_argument('--epochV', type=int, default=20)
+    parser.add_argument('--epochV', type=int, default=0)
     parser.add_argument('--cIm', type=int, default=4)
     parser.add_argument('--seedLoad', type=str, default="0000")
     parser.add_argument('--load', type=bool, default=False)
@@ -55,6 +55,7 @@ def parse_args():
     parser.add_argument('--expandDis', type=int, default=3)
     parser.add_argument('--wiggle', type=bool, default=False)
     parser.add_argument('--wiggleDepth', type=int, default=2)
+    parser.add_argument('--visdom', type=bool, default=True)
 
     return check_args(parser.parse_args())
 
