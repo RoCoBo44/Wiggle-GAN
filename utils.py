@@ -158,6 +158,7 @@ class VisdomLinePlotter(object):
         self.viz = visdom.Visdom()
         self.env = env_name
         self.ini = False
+        self.count = 1
     def plot(self, var_name,names, split_name, hist):
 
 
@@ -165,8 +166,9 @@ class VisdomLinePlotter(object):
         x = []
         y = []
         for i, name in enumerate(names):
-            x.append(len(hist[name ]))
+            x.append(self.count)
             y.append(hist[name])
+        self.count+=1
         #x1 = (len(hist['D_loss_' +split_name]))
         #x2 = (len(hist['G_loss_' +split_name]))
 
@@ -178,9 +180,9 @@ class VisdomLinePlotter(object):
             x[0] = x[1]
         np.array(x)
 
+
         for i,n in enumerate(names):
             x[i] = np.arange(1, x[i]+1)
-
 
         if not self.ini:
             for i, name in enumerate(names):

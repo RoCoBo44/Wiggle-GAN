@@ -354,7 +354,7 @@ class MyACGAN(object):
 
                 self.vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
 
-            ##################Validation#####################################
+            ##################Validation####################################
             for iter, data in enumerate(self.data_Validation):
 
                 # Aumento mi data
@@ -457,10 +457,10 @@ class MyACGAN(object):
                 self.epoch_hist['D_loss_train'].append(0)
                 self.epoch_hist['D_loss_Validation'].append(0)
             else:
-                inicioTr = (epoch - self.epochVentaja) * (iterFinTrain - iterIniTrain)
-                inicioTe = (epoch - self.epochVentaja) * (iterFinValidation - iterIniValidation)
-                self.epoch_hist['D_loss_train'].append(mean(self.train_hist['D_loss_train'][inicioTr: -1]))
-                self.epoch_hist['D_loss_Validation'].append(mean(self.train_hist['D_loss_Validation'][inicioTe: -1]))
+                #inicioTr = (epoch - self.epochVentaja) * (iterFinTrain - iterIniTrain)
+                #inicioTe = (epoch - self.epochVentaja) * (iterFinValidation - iterIniValidation)
+                self.epoch_hist['D_loss_train'].append(mean(self.train_hist['D_loss_train'][iterIniTrain: -1]))
+                self.epoch_hist['D_loss_Validation'].append(mean(self.train_hist['D_loss_Validation'][iterIniValidation: -1]))
 
             self.epoch_hist['G_loss_train'].append(mean(self.train_hist['G_loss_train'][iterIniTrain:iterFinTrain]))
             self.epoch_hist['G_loss_Validation'].append(
@@ -470,15 +470,39 @@ class MyACGAN(object):
                                ['D_loss_train', 'G_loss_train', 'D_loss_Validation', 'G_loss_Validation'],
                                self.epoch_hist)
 
+            self.train_hist['D_loss_train'] = self.train_hist['D_loss_train'][-1:]
+            self.train_hist['G_loss_train'] = self.train_hist['G_loss_train'][-1:]
+            self.train_hist['D_loss_Validation'] = self.train_hist['D_loss_Validation'][-1:]
+            self.train_hist['G_loss_Validation'] = self.train_hist['G_loss_Validation'][-1:]
+            self.train_hist['per_epoch_time'] = self.train_hist['per_epoch_time'][-1:]
+            self.train_hist['total_time'] = self.train_hist['total_time'][-1:]
 
-            ## In order to load data
-            #f = open('epochData.pkl', 'rb')
-            #savedData = pickle.load(f)
-            #f.close()
+            self.details_hist['G_T_Comp_im'] = self.details_hist['G_T_Comp_im'][-1:]
+            self.details_hist['G_T_BCE_fake_real'] = self.details_hist['G_T_BCE_fake_real'][-1:]
+            self.details_hist['G_T_CE_Class'] = self.details_hist['G_T_CE_Class'][-1:]
+            self.details_hist['G_zCR'] = self.details_hist['G_zCR'][-1:]
 
-            ##cambio de iters
-            iterIniValidation = iterFinValidation
-            iterIniTrain = iterFinTrain
+            self.details_hist['G_V_Comp_im'] = self.details_hist['G_V_Comp_im'][-1:]
+            self.details_hist['G_V_BCE_fake_real'] = self.details_hist['G_V_BCE_fake_real'][-1:]
+            self.details_hist['G_V_CE_Class'] = self.details_hist['G_V_CE_Class'][-1:]
+
+            self.details_hist['D_T_CE_Class_R'] = self.details_hist['D_T_CE_Class_R'][-1:]
+            self.details_hist['D_T_BCE_fake_real_R'] = self.details_hist['D_T_BCE_fake_real_R'][-1:]
+            self.details_hist['D_T_CE_Class_F'] = self.details_hist['D_T_CE_Class_F'][-1:]
+            self.details_hist['D_T_BCE_fake_real_F'] = self.details_hist['D_T_BCE_fake_real_F'][-1:]
+            self.details_hist['D_zCR'] = self.details_hist['D_zCR'][-1:]
+            self.details_hist['D_bCR'] = self.details_hist['D_bCR'][-1:]
+
+            self.details_hist['D_V_CE_Class_R'] = self.details_hist['D_V_CE_Class_R'][-1:]
+            self.details_hist['D_V_BCE_fake_real_R'] = self.details_hist['D_V_BCE_fake_real_R'][-1:]
+            self.details_hist['D_V_CE_Class_F'] = self.details_hist['D_V_CE_Class_F'][-1:]
+            self.details_hist['D_V_BCE_fake_real_F'] = self.details_hist['D_V_BCE_fake_real_F'][-1:]
+            ##Para poder tomar el promedio por epoch
+            iterIniTrain = 1
+            iterFinTrain = 1
+
+            iterIniValidation = 1
+            iterFinValidation = 1
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
             if epoch % 10 == 0:
