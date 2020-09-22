@@ -42,10 +42,10 @@ def dataloader(dataset, input_size, batch_size,dim,split='train', trans=False):
     elif dataset == '4cam':
         if split != 'test':
             cams = ImagesDataset(root_dir=os.getcwd() + '/Images/ActualDataset', dim=dim, name=split, transform=trans)
-            return DataLoader(cams, batch_size=batch_size, shuffle=True) #num_workers=3
+            return DataLoader(cams, batch_size=batch_size, shuffle=True, num_workers=3)
         else:
             cams = TestingDataset(root_dir=os.getcwd() + '/Images/Input-Test', dim=dim, name=split)
-            return DataLoader(cams, batch_size=batch_size, shuffle=False)
+            return DataLoader(cams, batch_size=batch_size, shuffle=False, num_workers=3)
 
     return data_loader
 
@@ -80,20 +80,11 @@ class ImagesDataset(Dataset):
             idx = idx.tolist()
         idx = self.parser.get(self.name, str(idx))
         if self.transform:
-            #values of randomness
-
-            brighness = 1
-            saturation = 1
-            contrast = 1
-            gamma = 1
-            hue = 0
-
-            if random.uniform(0, 1) > 0.25: # valor random mayor 0.5
-                brighness = random.uniform(0.4, 1.5)
-                saturation = random.uniform(0, 2)
-                contrast = random.uniform(0.4, 2)
-                gamma = random.uniform(0.7, 1.3)
-                hue = random.uniform(-0.01, 0.01)
+            brighness = random.uniform(0.7, 1.2)
+            saturation = random.uniform(0, 2)
+            contrast = random.uniform(0.4, 2)
+            gamma = random.uniform(0.7, 1.3)
+            hue = random.uniform(-0.3, 0.3)  # 0.01
         """""
         sample = np.array([])
         for i in range(0,self.nCameras):
@@ -182,6 +173,12 @@ class ImagesDataset(Dataset):
         img = Image.open(img_name).convert('RGB')  # .convert('L')
         if (img.size[0] != self.imageDim or img.size[1] != self.imageDim):
             img = img.resize((self.imageDim, self.imageDim))
+        if self.transform:
+            img = transforms.functional.adjust_gamma(img, gamma)
+            img = transforms.functional.adjust_brightness(img, brighness)
+            img = transforms.functional.adjust_contrast(img, contrast)
+            img = transforms.functional.adjust_saturation(img, saturation)
+            img = transforms.functional.adjust_hue(img, hue)
         x1 = transforms.ToTensor()(img)
         x1 = (x1 * 2) - 1
 
@@ -201,6 +198,12 @@ class ImagesDataset(Dataset):
         img = Image.open(img_name).convert('RGB')  # .convert('L')
         if (img.size[0] != self.imageDim or img.size[1] != self.imageDim):
             img = img.resize((self.imageDim, self.imageDim))
+        if self.transform:
+            img = transforms.functional.adjust_gamma(img, gamma)
+            img = transforms.functional.adjust_brightness(img, brighness)
+            img = transforms.functional.adjust_contrast(img, contrast)
+            img = transforms.functional.adjust_saturation(img, saturation)
+            img = transforms.functional.adjust_hue(img, hue)
         x2 = transforms.ToTensor()(img)
         x2 = (x2 * 2) - 1
 
