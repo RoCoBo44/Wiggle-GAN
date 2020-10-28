@@ -70,31 +70,35 @@ class WiggleGAN(object):
 
         # load dataset
 
-        self.data_loader = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='train',
+        if not self.wiggle:
+            self.data_loader = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='train',
                                       trans=not self.CR)
 
-        self.data_Validation = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim,
+            self.data_Validation = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim,
                                           split='validation')
+
+            self.dataprint = self.data_Validation.__iter__().__next__()
+
+            data = self.data_loader.__iter__().__next__().get('x_im')
+
+            self.D = depth_discriminator_noclass_UNet(input_dim=3, output_dim=1, input_shape=data.shape,
+                                                      class_num=self.class_num,
+                                                      expand_net=self.expandDis)
+            self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
+
         self.data_Test = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='test')
-
-        self.dataprint = self.data_Validation.__iter__().__next__()  # next(iter(self.data_Validation))[0:self.cantImages]  # Para agarrar varios
         self.dataprint_test = self.data_Test.__iter__().__next__()
-
-        self.batch_size = self.batch_size #* self.nCameras * (self.nCameras - 1)  ## EXPLICADO EN VIDEO es por los frames
-        data = self.data_loader.__iter__().__next__().get('x_im')
 
         # networks init
 
         self.G = depth_generator_UNet(input_dim=4, output_dim=3, class_num=self.class_num, expand_net=self.expandGen)
-        # Ese 2 del input es porque es blanco y negro (imINICIO+imANGULO)
-        self.D = depth_discriminator_noclass_UNet(input_dim=3, output_dim=1, input_shape=data.shape, class_num=self.class_num,
-                                          expand_net=self.expandDis)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
-        self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
+
 
         if self.gpu_mode:
             self.G.cuda()
-            self.D.cuda()
+            if not self.wiggle:
+                self.D.cuda()
             self.BCE_loss = nn.BCELoss().cuda()
             self.CE_loss = nn.CrossEntropyLoss().cuda()
             self.L1 = nn.L1Loss().cuda()
@@ -109,9 +113,9 @@ class WiggleGAN(object):
 
         print('---------- Networks architecture -------------')
         utils.print_network(self.G)
-        utils.print_network(self.D)
+        if not self.wiggle:
+            utils.print_network(self.D)
         print('-----------------------------------------------')
-
 
         temp = torch.zeros((self.class_num, 1))
         for i in range(self.class_num):
@@ -725,7 +729,8 @@ class WiggleGAN(object):
         save_dir = os.path.join(self.save_dir, self.dataset, self.model_name)
 
         self.G.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_' + self.seed_load + '_G.pkl')))
-        self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_' + self.seed_load + '_D.pkl')))
+        if not self.wiggle:
+            self.D.load_state_dict(torch.load(os.path.join(save_dir, self.model_name + '_' + self.seed_load + '_D.pkl')))
 
     def wiggleEf(self):
         seed, epoch = self.seed_load.split('_')
