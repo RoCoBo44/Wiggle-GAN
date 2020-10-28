@@ -336,7 +336,7 @@ class UnetDeconvBlock(nn.Module):
         super(UnetDeconvBlock, self).__init__()
 
         self.conv1 = UnetDeSingleConvBlock(in_size_skip_con, in_size_skip_con, dropout)
-        self.conv2 = UnetDeSingleConvBlock(in_size_skip_con + in_size_skip_con, out_size, dropout)
+        self.conv2 = UnetDeSingleConvBlock(in_size_layer + in_size_skip_con, out_size, dropout)
 
         # Dropout
         if dropout > 0.0:
@@ -351,7 +351,7 @@ class UnetDeconvBlock(nn.Module):
 
         outputs = self.conv1(inputs_skip)
 
-        outputs = changeDim(outputs, inputs_layer)
+        #outputs = changeDim(outputs, inputs_layer)
 
         outputs = torch.cat((inputs_layer, outputs), 1)
         outputs = self.conv2(outputs)
@@ -378,7 +378,7 @@ class UpBlock(nn.Module):
         inputs_layer = self.up(inputs_layer)
 
         # input is CHW
-        inputs_layer = changeDim(inputs_layer, inputs_skip)
+        #inputs_layer = changeDim(inputs_layer, inputs_skip)
 
         return self.conv(inputs_layer, inputs_skip)
 
@@ -870,24 +870,8 @@ class depth_generator_UNet(nn.Module):
         #sdadsadas
 
         x = torch.cat([im, imDep], 1)
-
-        ##PARA TENER LA CLASE DEL CORRIMIENTO
-        cl = ((clase == 1))
-        cl = cl[:, 1]
-        cl = cl.type(torch.FloatTensor)
-        max = (clase.size())[1] - 1
-        cl = cl / float(max)
-
-        ##crear imagen layer de corrimiento
-        tam = im.size()
-        layerClase = torch.ones([tam[0], tam[2], tam[3]], dtype=torch.float32, device="cuda:0")
-        for idx, item in enumerate(layerClase):
-            layerClase[idx] = item * cl[idx]
-        layerClase = layerClase.unsqueeze(0)
-        layerClase = layerClase.transpose(1, 0)
-
         ##unir layer el rgb de la imagen
-        x = torch.cat((x, layerClase), 1)
+        x = torch.cat((x, clase), 1)
 
         x1 = self.conv1(x)
         x2 = self.conv2(x1)  # self.maxpool1(x1))
@@ -938,17 +922,20 @@ class depth_discriminator_UNet(nn.Module):
 
         self.fc1 = nn.Sequential(
             nn.Linear(self.n_size, 1024),
+        )
+
+        self.BnLr = nn.Sequential(
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(0.2),
         )
 
         self.dc = nn.Sequential(
             nn.Linear(1024, self.output_dim),
-            # nn.Sigmoid(),
+            #nn.Sigmoid(),
         )
         self.cl = nn.Sequential(
             nn.Linear(1024, self.class_num),
-            nn.Softmax(dim=1),  # poner el que la suma da 1
+            # nn.Softmax(dim=1),  # poner el que la suma da 1
         )
 
         utils.initialize_weights(self)
@@ -975,8 +962,6 @@ class depth_discriminator_UNet(nn.Module):
         # print("this si X:", x)
         # print("now shape", x.shape)
         x = input
-        x = x.type(torch.FloatTensor)
-        x = x.to(device='cuda:0')
 
         x = torch.cat((x, origen), 1)
         x = torch.cat((x, dep), 1)
@@ -985,8 +970,85 @@ class depth_discriminator_UNet(nn.Module):
         x = self.conv3(x)
         x = self.conv4(x)
         x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+        features = self.fc1(x)
+        x = self.BnLr(features)
         d = self.dc(x)
         c = self.cl(x)
 
-        return d, c
+        return d, c, features
+
+class depth_discriminator_noclass_UNet(nn.Module):
+    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=2, expand_net=2):
+        super(depth_discriminator_noclass_UNet, self).__init__()
+
+        #discriminator_UNet.__init__(self, input_dim=self.input_dim, output_dim=output_dim, input_shape=input_shape,
+        #                            class_num=class_num, expand_net = expand_net)
+
+        self.output_dim = output_dim
+        self.input_shape = list(input_shape)
+        self.class_num = class_num
+        self.expandNet = expand_net
+
+        self.input_dim = input_dim * 2 + 2 # ya que le doy el origen + Dep + class
+        self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet), stride=1, dropout=0.3)
+        self.conv2 = UnetConvBlock(pow(2, self.expandNet), pow(2, self.expandNet + 1), stride=2, dropout=0.2)
+        self.conv3 = UnetConvBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 2), stride=2, dropout=0.2)
+        self.conv4 = UnetDeSingleConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), stride=2,
+                                           dropout=0.3)
+
+        self.input_shape[1] = self.input_dim
+        self.n_size = self._get_conv_output(self.input_shape)
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.n_size, 1024),
+        )
+
+        self.BnLr = nn.Sequential(
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(0.2),
+        )
+
+        self.dc = nn.Sequential(
+            nn.Linear(1024, self.output_dim),
+            nn.Sigmoid(),
+        )
+
+        utils.initialize_weights(self)
+
+    def _get_conv_output(self, shape):
+        bs = 1
+        input = Variable(torch.rand(bs, *shape))
+        x = input.squeeze()
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        return x.shape[1]
+
+    def forward(self, input, origen, dep, clase):
+        # esto va a cambiar cuando tenga color
+        # if (len(input.shape) <= 3):
+        #    input = input[:, None, :, :]
+        # im = im[:, None, :, :]
+        # print("D in shape",input.shape)
+
+        # print(input.shape)
+        # print("this si X:", x)
+        # print("now shape", x.shape)
+        x = input
+        ##unir layer el rgb de la imagen
+        x = torch.cat((x, clase), 1)
+
+        x = torch.cat((x, origen), 1)
+        x = torch.cat((x, dep), 1)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(x.size(0), -1)
+        features = self.fc1(x)
+        x = self.BnLr(features)
+        d = self.dc(x)
+
+        return d, features

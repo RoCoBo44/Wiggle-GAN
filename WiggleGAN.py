@@ -13,18 +13,11 @@ import matplotlib.pyplot as plt
 import random
 from datetime import date
 from statistics import mean
-from architectures import depth_generator, depth_discriminator, depth_generator_UNet, discriminator_UNet, \
-    depth_discriminator_UNet
+from architectures import depth_generator_UNet, \
+    depth_discriminator_noclass_UNet
 
-
-
-
-class MyACGAN(object):
+class WiggleGAN(object):
     def __init__(self, args):
-
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cudnn.enabled = True
-
         # parameters
         self.epoch = args.epoch
         self.sample_num = 100
@@ -43,40 +36,42 @@ class MyACGAN(object):
         self.epochVentaja = args.epochV
         self.cantImages = args.cIm
         self.visdom = args.visdom
+        self.lambdaL1 = args.lambdaL1
 
-        random.seed(time.time())
-        today = date.today()
+        self.clipping = args.clipping
+        self.WGAN = False
+        if (self.clipping > 0):
+            self.WGAN = True
+
+
+
         self.seed = str(random.randint(0, 99999))
         self.seed_load = args.seedLoad
-        self.toLoad = args.load
+        self.toLoad = False
+        if (self.seed_load != "-0000"):
+            self.toLoad = True
 
         self.zGenFactor = args.zGF
         self.zDisFactor = args.zDF
         self.bFactor = args.bF
+        self.CR = False
+        if (self.zGenFactor > 0 or self.zDisFactor > 0 or self.bFactor > 0):
+            self.CR = True
 
         self.expandGen = args.expandGen
         self.expandDis = args.expandDis
 
-        self.wiggle = args.wiggle
         self.wiggleDepth = args.wiggleDepth
+        self.wiggle = False
+        if (self.wiggleDepth > 0):
+            self.wiggle = True
 
-        self.vis = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visEpoch = utils.VisdomLineTwoPlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visImages = utils.VisdomImagePlotter(env_name='Cobo_depth_Images_' + str(today) + '_' + self.seed)
-        self.visImagesTest = utils.VisdomImagePlotter(env_name='Cobo_depth_ImagesTest_' + str(today) + '_' + self.seed)
 
-        self.visLossGTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visLossGValidation = utils.VisdomLinePlotter(
-            env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-
-        self.visLossDTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
-        self.visLossDValidation = utils.VisdomLinePlotter(
-            env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
 
         # load dataset
+
         self.data_loader = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='train',
-                                      trans=False)
+                                      trans=not self.CR)
 
         self.data_Validation = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim,
                                           split='validation')
@@ -92,7 +87,7 @@ class MyACGAN(object):
 
         self.G = depth_generator_UNet(input_dim=4, output_dim=3, class_num=self.class_num, expand_net=self.expandGen)
         # Ese 2 del input es porque es blanco y negro (imINICIO+imANGULO)
-        self.D = depth_discriminator_UNet(input_dim=3, output_dim=1, input_shape=data.shape, class_num=self.class_num,
+        self.D = depth_discriminator_noclass_UNet(input_dim=3, output_dim=1, input_shape=data.shape, class_num=self.class_num,
                                           expand_net=self.expandDis)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
         self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
@@ -104,11 +99,13 @@ class MyACGAN(object):
             self.CE_loss = nn.CrossEntropyLoss().cuda()
             self.L1 = nn.L1Loss().cuda()
             self.MSE = nn.MSELoss().cuda()
+            self.BCEWithLogitsLoss = nn.BCEWithLogitsLoss().cuda()
         else:
             self.BCE_loss = nn.BCELoss()
             self.CE_loss = nn.CrossEntropyLoss()
             self.MSE = nn.MSELoss()
             self.L1 = nn.L1Loss()
+            self.BCEWithLogitsLoss = nn.BCEWithLogitsLoss()
 
         print('---------- Networks architecture -------------')
         utils.print_network(self.G)
@@ -132,6 +129,23 @@ class MyACGAN(object):
             self.load()
 
     def train(self):
+
+        if self.visdom:
+            random.seed(time.time())
+            today = date.today()
+
+            vis = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+            visValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+            visEpoch = utils.VisdomLineTwoPlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+            visImages = utils.VisdomImagePlotter(env_name='Cobo_depth_Images_' + str(today) + '_' + self.seed)
+            visImagesTest = utils.VisdomImagePlotter(env_name='Cobo_depth_ImagesTest_' + str(today) + '_' + self.seed)
+
+            visLossGTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+            visLossGValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+
+            visLossDTest = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+            visLossDValidation = utils.VisdomLinePlotter(env_name='Cobo_depth_Train-Plots_' + str(today) + '_' + self.seed)
+
         self.train_hist = {}
         self.epoch_hist = {}
         self.details_hist = {}
@@ -144,23 +158,17 @@ class MyACGAN(object):
 
         self.details_hist['G_T_Comp_im'] = []
         self.details_hist['G_T_BCE_fake_real'] = []
-        self.details_hist['G_T_CE_Class'] = []
         self.details_hist['G_zCR'] = []
 
         self.details_hist['G_V_Comp_im'] = []
         self.details_hist['G_V_BCE_fake_real'] = []
-        self.details_hist['G_V_CE_Class'] = []
 
-        self.details_hist['D_T_CE_Class_R'] = []
         self.details_hist['D_T_BCE_fake_real_R'] = []
-        self.details_hist['D_T_CE_Class_F'] = []
         self.details_hist['D_T_BCE_fake_real_F'] = []
         self.details_hist['D_zCR'] = []
         self.details_hist['D_bCR'] = []
 
-        self.details_hist['D_V_CE_Class_R'] = []
         self.details_hist['D_V_BCE_fake_real_R'] = []
-        self.details_hist['D_V_CE_Class_F'] = []
         self.details_hist['D_V_BCE_fake_real_F'] = []
 
         self.epoch_hist['D_loss_train'] = []
@@ -176,15 +184,21 @@ class MyACGAN(object):
         iterFinValidation = 0
 
         self.D.train()
-        print('training start!!')
-        start_time = time.time()
 
         maxIter = self.data_loader.dataset.__len__() // self.batch_size
         maxIterVal = self.data_Validation.dataset.__len__() // self.batch_size
 
-        self.y_real_, self.y_fake_ = torch.ones(self.batch_size, 1), torch.zeros(self.batch_size, 1)
-        if self.gpu_mode:
-            self.y_real_, self.y_fake_ = self.y_real_.cuda(), self.y_fake_.cuda()
+        if (self.WGAN):
+            one = torch.tensor(1, dtype=torch.float).cuda()
+            mone = one * -1
+        else:
+            self.y_real_ = torch.ones(self.batch_size, 1)
+            self.y_fake_ = torch.zeros(self.batch_size, 1)
+            if self.gpu_mode:
+                self.y_real_, self.y_fake_ = self.y_real_.cuda(), self.y_fake_.cuda()
+
+        print('training start!!')
+        start_time = time.time()
 
         for epoch in range(self.epoch):
 
@@ -194,6 +208,7 @@ class MyACGAN(object):
                 ventaja = False
 
             self.G.train()
+            self.D.train()
             epoch_start_time = time.time()
 
 
@@ -205,101 +220,110 @@ class MyACGAN(object):
                 y_im = data.get('y_im')
                 y_dep = data.get('y_dep')
                 y_ = data.get('y_')
-                #{'x_im': x1, 'x_dep': x1_dep, 'y_im': x2, 'y_dep': x2_dep, 'y_': torch.tensor(1)}
-
-
-
-                # Aumento mi data
-                x_im_aug, y_im_aug = augmentData(x_im, y_im)
-                x_im_vanilla = x_im
 
                 # x_im  = imagenes normales
                 # x_dep = profundidad de images
                 # y_im  = imagen con el angulo cambiado
                 # y_    = angulo de la imagen = tengo que tratar negativos
 
-                #y_ = torch.Tensor(list(map(lambda x: int(x - 1) if (x > 0) else int(x), y_)))
+                # Aumento mi data
+                if (self.CR):
+                    x_im_aug, y_im_aug = augmentData(x_im, y_im)
+                    x_im_vanilla = x_im
 
-                # x_im  = torch.Tensor(list(x_im))
-                # x_dep = torch.Tensor(x_dep)
-                # y_im  = torch.Tensor(y_im)
-                # print(y_.shape[0])
+                    if self.gpu_mode:
+                        x_im_aug, y_im_aug = x_im_aug.cuda(), y_im_aug.cuda()
+
                 if iter >= maxIter:
-                    # print ("Break")
                     break
-                # print (y_.type(torch.LongTensor).unsqueeze(1))
 
-                y_little = y_[:,0,0,0]
-
-                y_vec_ = torch.zeros((y_little.shape[0], self.class_num)).scatter_(1, y_little.type(torch.LongTensor).unsqueeze(1),1)
-
-
-                # print("y_vec_",y_vec_)
                 if self.gpu_mode:
-                    x_im, y_, y_im, x_dep, x_im_aug, y_im_aug, y_dep, y_vec_ = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), x_im_aug.cuda(), y_im_aug.cuda(), y_dep.cuda(), y_vec_.cuda()
-                # update D network
+                    x_im, y_, y_im, x_dep, y_dep = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
 
+                # update D network
                 if not ventaja:
+
+                    for p in self.D.parameters():  # reset requires_grad
+                        p.requires_grad = True  # they are set to False below in netG update
 
                     self.D_optimizer.zero_grad()
 
                     # Real Images
-                    D_real, D_clase_real, D_features_real = self.D(y_im, x_im, y_dep)  ## Es la funcion forward `` g(z) x
+                    D_real, D_features_real = self.D(y_im, x_im, y_dep, y_)  ## Es la funcion forward `` g(z) x
 
                     # Fake Images
                     G_, G_dep = self.G( y_, x_im, y_dep)
-                    D_fake, D_clase_fake, D_features_fake = self.D(G_, x_im, G_dep)
-
-                    # Fake Augmented Images bCR
-                    x_im_aug_bCR, G_aug_bCR = augmentData(x_im_vanilla, G_.data.cpu())
-
-                    if self.gpu_mode:
-                        G_aug_bCR, x_im_aug_bCR = G_aug_bCR.cuda(), x_im_aug_bCR.cuda()
-
-                    D_fake_bCR, D_clase_fake_bCR, D_features_fake_bCR = self.D(G_aug_bCR, x_im_aug_bCR, G_dep)
-                    D_real_bCR, D_clase_real_bCR, D_features_real_bCR = self.D(y_im_aug, x_im_aug, y_dep)
-
-                    # Fake Augmented Images zCR
-                    G_aug_zCR, G_dep_aug_zCR = self.G(y_, x_im_aug, x_dep)
-                    D_fake_aug_zCR, D_clase_fake_aug, D_features_fake_aug_zCR = self.D(G_aug_zCR, x_im_aug, G_dep_aug_zCR)
+                    D_fake, D_features_fake = self.D(G_, x_im, G_dep, y_)
 
                     # Losses
                     #  GAN Loss
-                    D_loss_real_fake = self.BCE_loss(D_real, self.y_real_) + self.BCE_loss(D_fake,self.y_fake_)  # de Gan normal
-                    # D_loss_real_fake = torch.mean(D_fake) - torch.mean(D_real) # de WGAN
+                    if (self.WGAN): # de WGAN
+                        D_loss_real_fake_R_positive = torch.mean(D_real)
+                        D_loss_real_fake_F = torch.mean(D_fake)
+                        D_loss_real_fake_R = - D_loss_real_fake_R_positive
 
-                    #  Class Loss
-                    D_loss_Class = (self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1]) +
-                                    self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1]) +
-                                    self.CE_loss(D_clase_fake_bCR, torch.max(y_vec_, 1)[1]) +
-                                    self.CE_loss(D_clase_real_bCR, torch.max(y_vec_, 1)[1]) +
-                                    self.CE_loss(D_clase_fake_aug, torch.max(y_vec_, 1)[1]))/5
+                    else:       # de Gan normal
+                        D_loss_real_fake_R = self.BCEWithLogitsLoss(D_real, self.y_real_)
+                        D_loss_real_fake_F = self.BCEWithLogitsLoss(D_fake, self.y_fake_)
 
-                    #  bCR Loss (*)
-                    D_loss_real = self.MSE(D_features_real, D_features_real_bCR)
-                    D_loss_fake = self.MSE(D_features_fake, D_features_fake_bCR)
-                    D_bCR = (D_loss_real + D_loss_fake) * self.bFactor  # ACA EN EL PAPER USA UN FACTOR PERO NO SE COMO AGRGARLO, igual que zCR
+                    D_loss_real_fake = D_loss_real_fake_F + D_loss_real_fake_R
 
-                    #  zCR Loss
-                    D_zCR = self.MSE(D_features_fake, D_features_fake_aug_zCR) * self.zDisFactor
+                    D_loss = D_loss_real_fake
 
-                    D_loss = D_loss_Class + D_loss_real_fake + D_bCR + D_zCR
+                    if (self.CR):
+
+                        # Fake Augmented Images bCR
+                        x_im_aug_bCR, G_aug_bCR = augmentData(x_im_vanilla, G_.data.cpu())
+
+                        if self.gpu_mode:
+                            G_aug_bCR, x_im_aug_bCR = G_aug_bCR.cuda(), x_im_aug_bCR.cuda()
+
+                        D_fake_bCR, D_features_fake_bCR = self.D(G_aug_bCR, x_im_aug_bCR, G_dep, y_)
+                        D_real_bCR, D_features_real_bCR = self.D(y_im_aug, x_im_aug, y_dep, y_)
+
+                        # Fake Augmented Images zCR
+                        G_aug_zCR, G_dep_aug_zCR = self.G(y_, x_im_aug, x_dep)
+                        D_fake_aug_zCR, D_features_fake_aug_zCR = self.D(G_aug_zCR, x_im_aug, G_dep_aug_zCR, y_)
+
+                        #  bCR Loss (*)
+                        D_loss_real = self.MSE(D_features_real, D_features_real_bCR)
+                        D_loss_fake = self.MSE(D_features_fake, D_features_fake_bCR)
+                        D_bCR = (D_loss_real + D_loss_fake) * self.bFactor
+
+                        #  zCR Loss
+                        D_zCR = self.MSE(D_features_fake, D_features_fake_aug_zCR) * self.zDisFactor
+
+                        D_CR_losses = D_bCR + D_zCR
+                        D_CR_losses.backward(retain_graph=True)
+
+                        D_loss = D_loss_real_fake + D_CR_losses
+
+                        self.details_hist['D_bCR'].append(D_bCR.item())
+                        self.details_hist['D_zCR'].append(D_zCR.item())
+                    else:
+                        self.details_hist['D_bCR'].append(0)
+                        self.details_hist['D_zCR'].append(0)
 
                     self.train_hist['D_loss_train'].append(D_loss.item())
-                    self.details_hist['D_T_CE_Class_R'].append(D_loss_Class.item())
-                    self.details_hist['D_T_BCE_fake_real_R'].append(D_loss_real_fake.item())
-                    self.details_hist['D_bCR'].append(D_bCR.item())#D_bCR.item()
-                    self.details_hist['D_zCR'].append(D_zCR.item())#D_zCR.item()
-                    self.visLossDTest.plot('Discriminator_losses',
-                                           ['D_T_CE_Class_R', 'D_T_BCE_fake_real_R', 'D_bCR', 'D_zCR'], 'train',
+                    self.details_hist['D_T_BCE_fake_real_R'].append(D_loss_real_fake_R.item())
+                    self.details_hist['D_T_BCE_fake_real_F'].append(D_loss_real_fake_F.item())
+                    visLossDTest.plot('Discriminator_losses',
+                                           ['D_T_BCE_fake_real_R','D_T_BCE_fake_real_F', 'D_bCR', 'D_zCR'], 'train',
                                            self.details_hist)
 
-                    D_loss.backward()
+                    D_loss_real_fake_F.backward(retain_graph=True)
+                    if(self.WGAN):
+                        D_loss_real_fake_R_positive.backward(mone)
+                    else:
+                        D_loss_real_fake_R.backward()
+
                     self.D_optimizer.step()
 
                     #WGAN
-                    #for p in self.D.parameters():
-                    #    p.data.clamp_(-0.01, 0.01)
+                    if (self.WGAN):
+                        for p in self.D.parameters():
+                            p.data.clamp_(-self.clipping, self.clipping) #Segun paper si el valor es muy chico lleva al banishing gradient
+                    # Si se aplicaria la mejora en las WGANs tendiramos que sacar los batch normalizations de la red
 
 
                 # update G network
@@ -308,66 +332,59 @@ class MyACGAN(object):
                 G_, G_dep = self.G(y_, x_im, x_dep)
 
                 if not ventaja:
-
-                    # Fake images augmented
-
-                    G_aug, G_dep_aug = self.G(y_, x_im_aug, x_dep)
-
-                    D_fake_aug, D_clase_fake_aug, _ = self.D(G_aug, x_im, G_dep_aug)
+                    for p in self.D.parameters():
+                        p.requires_grad = False  # to avoid computation
 
                     # Fake images
-                    D_fake, D_clase_fake, _ = self.D(G_, x_im, G_dep)
+                    D_fake, _ = self.D(G_, x_im, G_dep, y_)
 
-                    #GAN LOSS
-                    # G_loss = -(torch.mean(D_fake) + torch.mean(D_fake_aug))/2 #de WGAN
-                    G_loss = (self.BCE_loss(D_fake, self.y_real_) + self.BCE_loss(D_fake_aug, self.y_real_)) / 2
+                    if (self.WGAN):
+                        G_loss_fake = -torch.mean(D_fake) #de WGAN
+                    else:
+                        G_loss_fake = self.BCEWithLogitsLoss(D_fake, self.y_real_)
 
-                    self.details_hist['G_T_BCE_fake_real'].append(G_loss.item())
+                    # loss between images (*)
+                    #G_join = torch.cat((G_, G_dep), 1)
+                    #y_join = torch.cat((y_im, y_dep), 1)
 
-                    # Class
-                    C_fake_loss = (self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1]) +
-                                   self.CE_loss(D_clase_fake_aug, torch.max(y_vec_, 1)[1])
-                                   )/2
+                    G_loss_Comp = self.L1(G_, y_im) + self.L1(G_dep, y_dep)
 
-                    #C_fake_loss = self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1])
-
-                    # loss between images
-                    G_join = torch.cat((G_, G_dep), 1)
-                    y_join = torch.cat((y_im, y_dep), 1)
-                    y_aug_join = torch.cat((y_im_aug, y_dep), 1)
-                    G_aug_join = torch.cat((G_aug, G_dep_aug), 1)
+                    G_loss_Dif_Comp = G_loss_Comp * self.lambdaL1
 
 
-                    G_loss_Comp = self.L1(G_join, y_join)
-                    G_loss_Comp_Aug = self.L1(G_aug_join, y_aug_join)
-                    G_loss_Dif_Comp = G_loss_Comp + G_loss_Comp_Aug
+                    if (self.CR):
+                        # Fake images augmented
+
+                        G_aug, G_dep_aug = self.G(y_, x_im_aug, x_dep)
+                        D_fake_aug, _ = self.D(G_aug, x_im, G_dep_aug, y_)
+
+                        if (self.WGAN):
+                            G_loss_fake = - (torch.mean(D_fake)+torch.mean(D_fake_aug))/2
+                        else:
+                            G_loss_fake = ( self.BCEWithLogitsLoss(D_fake, self.y_real_) +
+                                            self.BCEWithLogitsLoss(D_fake_aug,self.y_real_)) / 2
+
+                        # loss between images (*)
+                        #y_aug_join = torch.cat((y_im_aug, y_dep), 1)
+                        #G_aug_join = torch.cat((G_aug, G_dep_aug), 1)
+
+                        G_loss_Comp_Aug = self.L1(G_aug, y_im_aug) + self.L1(G_dep_aug, y_dep)
+                        G_loss_Dif_Comp = (G_loss_Comp + G_loss_Comp_Aug)/2 * self.lambdaL1
 
 
-                    # zCR
-                    #G_zCR = -self.MSE(G_, G_aug) * self.zGenFactor
+                    G_loss = G_loss_fake + G_loss_Dif_Comp
 
-
-
-                    # dep
-                    # G_loss_Comp_dep = self.L1(G_dep, y_im)
-                    # G_loss_Comp_Aug_dep = self.L1(G_aug, y_im_aug)
-                    # G_loss_Dif_Comp_dep = G_loss_Comp + G_loss_Comp_Aug
-
-                    G_loss += G_loss_Dif_Comp + C_fake_loss
-
-
+                    self.details_hist['G_T_BCE_fake_real'].append(G_loss_fake.item())
                     self.details_hist['G_T_Comp_im'].append(G_loss_Dif_Comp.item())
-                    self.details_hist['G_T_CE_Class'].append(C_fake_loss.item())
                     self.details_hist['G_zCR'].append(0)
 
 
                 else:
                     G_join = torch.cat((G_, G_dep), 1)
                     y_join = torch.cat((y_im, y_dep), 1)
-                    G_loss = self.L1(G_join, y_join)
+                    G_loss = self.L1(G_join, y_join) * self.lambdaL1
                     self.details_hist['G_T_Comp_im'].append(G_loss.item())
                     self.details_hist['G_T_BCE_fake_real'].append(0)
-                    self.details_hist['G_T_CE_Class'].append(0)
                     self.details_hist['G_zCR'].append(0)
 
                 G_loss.backward()
@@ -376,14 +393,18 @@ class MyACGAN(object):
 
                 iterFinTrain += 1
 
-                self.visLossGTest.plot('Generator_losses',
-                                      ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_T_CE_Class', 'G_zCR'],
+                visLossGTest.plot('Generator_losses',
+                                      ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_zCR'],
                                        'train', self.details_hist)
 
-                self.vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
+                vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
 
             ##################Validation####################################
             with torch.no_grad():
+
+                self.G.eval()
+                self.D.eval()
+
                 for iter, data in enumerate(self.data_Validation):
 
                     # Aumento mi data
@@ -405,43 +426,41 @@ class MyACGAN(object):
                         # print ("Break")
                         break
                     # print (y_.type(torch.LongTensor).unsqueeze(1))
-                    y_little = y_[:, 0, 0, 0]
-                    y_vec_ = torch.zeros((y_little.shape[0], self.class_num)).scatter_(1, y_little.type(torch.LongTensor).unsqueeze(1),
-                                                                                 1).long()
 
 
                     # print("y_vec_", y_vec_)
                     # print ("z_", z_)
 
                     if self.gpu_mode:
-                        x_im, y_, y_im, x_dep, y_dep, y_vec_ = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda(), y_vec_.cuda()
+                        x_im, y_, y_im, x_dep, y_dep = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
                     # D network
 
                     if not ventaja:
                         # Real Images
-                        D_real, D_clase_real, _ = self.D(y_im, x_im, y_dep)  ## Es la funcion forward `` g(z) x
+                        D_real, _ = self.D(y_im, x_im, y_dep,y_)  ## Es la funcion forward `` g(z) x
 
                         # Fake Images
                         G_, G_dep = self.G(y_, x_im, x_dep)
-                        D_fake, D_clase_fake, _ = self.D(G_, x_im, G_dep)
-
+                        D_fake, _ = self.D(G_, x_im, G_dep, y_)
                         # Losses
-
                         #  GAN Loss
-                        # D_loss_real_fake = torch.mean(D_fake) - torch.mean(D_real)
-                        D_loss_real_fake = self.BCE_loss(D_real, self.y_real_) + self.BCE_loss(D_fake, self.y_fake_)
+                        if (self.WGAN):  # de WGAN
+                            D_loss_real_fake_R = - torch.mean(D_real)
+                            D_loss_real_fake_F = torch.mean(D_fake)
 
-                        #  Class Loss
-                        D_loss_Class = (self.CE_loss(D_clase_real, torch.max(y_vec_, 1)[1]) +
-                                        self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1]))/2
+                        else:  # de Gan normal
+                            D_loss_real_fake_R = self.BCEWithLogitsLoss(D_real, self.y_real_)
+                            D_loss_real_fake_F = self.BCEWithLogitsLoss(D_fake, self.y_fake_)
 
-                        D_loss = D_loss_Class + D_loss_real_fake
+                        D_loss_real_fake = D_loss_real_fake_F + D_loss_real_fake_R
+
+                        D_loss = D_loss_real_fake
 
                         self.train_hist['D_loss_Validation'].append(D_loss.item())
-                        self.details_hist['D_V_CE_Class_R'].append(D_loss_Class.item())
-                        self.details_hist['D_V_BCE_fake_real_R'].append(D_loss_real_fake.item())
-                        self.visLossDValidation.plot('Discriminator_losses',
-                                                     ['D_V_CE_Class_R', 'D_V_BCE_fake_real_R'], 'Validation',
+                        self.details_hist['D_V_BCE_fake_real_R'].append(D_loss_real_fake_R.item())
+                        self.details_hist['D_V_BCE_fake_real_F'].append(D_loss_real_fake_F.item())
+                        visLossDValidation.plot('Discriminator_losses',
+                                                     ['D_V_BCE_fake_real_R','D_V_BCE_fake_real_F'], 'Validation',
                                                      self.details_hist)
 
                     # G network
@@ -450,29 +469,29 @@ class MyACGAN(object):
 
                     if not ventaja:
                         # Fake images
-                        D_fake, D_clase_fake,_ = self.D(G_, x_im, G_dep)
+                        D_fake,_ = self.D(G_, x_im, G_dep, y_)
 
-                        # Tener en cuenta que el loss de la imagen como no hay augmentation, se calcula de otra forma
-                        G_loss = self.BCE_loss(D_fake, self.y_real_)  # de GAN NORMAL
-                        # G_loss = -torch.mean(D_fake) #porWGAN
+                        #Loss GAN
+                        if (self.WGAN):
+                            G_loss = -torch.mean(D_fake)  # porWGAN
+                        else:
+                            G_loss = self.BCEWithLogitsLoss(D_fake, self.y_real_) #de GAN NORMAL
+
                         self.details_hist['G_V_BCE_fake_real'].append(G_loss.item())
 
-                        G_join = torch.cat((G_, G_dep), 1)
-                        y_join = torch.cat((y_im, y_dep), 1)
-                        G_loss_Comp = self.L1(G_join, y_join)
+                        #Loss comparation
+                        #G_join = torch.cat((G_, G_dep), 1)
+                        #y_join = torch.cat((y_im, y_dep), 1)
 
-
-                        C_fake_loss = self.CE_loss(D_clase_fake, torch.max(y_vec_, 1)[1])
-                        G_loss += G_loss_Comp + C_fake_loss
-
+                        G_loss_Comp = (self.L1(G_, y_im) + self.L1(G_dep, y_dep)) * self.lambdaL1
+                        G_loss += G_loss_Comp
 
                         self.details_hist['G_V_Comp_im'].append(G_loss_Comp.item())
-                        self.details_hist['G_V_CE_Class'].append(C_fake_loss.item())
 
                     else:
                         G_join = torch.cat((G_, G_dep), 1)
                         y_join = torch.cat((y_im, y_dep), 1)
-                        G_loss = self.L1(G_join, y_join)
+                        G_loss = self.L1(G_join, y_join) * self.lambdaL1
                         self.details_hist['G_V_Comp_im'].append(G_loss.item())
                         self.details_hist['G_V_BCE_fake_real'].append(0)
                         self.details_hist['G_V_CE_Class'].append(0)
@@ -481,9 +500,9 @@ class MyACGAN(object):
 
 
                     iterFinValidation += 1
-                    self.visLossGValidation.plot('Generator_losses', ['G_V_Comp_im', 'G_V_BCE_fake_real', 'G_V_CE_Class'],
+                    visLossGValidation.plot('Generator_losses', ['G_V_Comp_im', 'G_V_BCE_fake_real'],
                                                  'Validation', self.details_hist)
-                    self.visValidation.plot('loss', ['D_loss_Validation', 'G_loss_Validation'], 'Validation',
+                    visValidation.plot('loss', ['D_loss_Validation', 'G_loss_Validation'], 'Validation',
                                            self.train_hist)
 
             ##Vis por epoch
@@ -501,7 +520,7 @@ class MyACGAN(object):
             self.epoch_hist['G_loss_Validation'].append(
                 mean(self.train_hist['G_loss_Validation'][iterIniValidation:iterFinValidation]))
 
-            self.visEpoch.plot('epoch', epoch,
+            visEpoch.plot('epoch', epoch,
                                ['D_loss_train', 'G_loss_train', 'D_loss_Validation', 'G_loss_Validation'],
                                self.epoch_hist)
 
@@ -514,23 +533,17 @@ class MyACGAN(object):
 
             self.details_hist['G_T_Comp_im'] = self.details_hist['G_T_Comp_im'][-1:]
             self.details_hist['G_T_BCE_fake_real'] = self.details_hist['G_T_BCE_fake_real'][-1:]
-            self.details_hist['G_T_CE_Class'] = self.details_hist['G_T_CE_Class'][-1:]
             self.details_hist['G_zCR'] = self.details_hist['G_zCR'][-1:]
 
             self.details_hist['G_V_Comp_im'] = self.details_hist['G_V_Comp_im'][-1:]
             self.details_hist['G_V_BCE_fake_real'] = self.details_hist['G_V_BCE_fake_real'][-1:]
-            self.details_hist['G_V_CE_Class'] = self.details_hist['G_V_CE_Class'][-1:]
 
-            self.details_hist['D_T_CE_Class_R'] = self.details_hist['D_T_CE_Class_R'][-1:]
             self.details_hist['D_T_BCE_fake_real_R'] = self.details_hist['D_T_BCE_fake_real_R'][-1:]
-            self.details_hist['D_T_CE_Class_F'] = self.details_hist['D_T_CE_Class_F'][-1:]
             self.details_hist['D_T_BCE_fake_real_F'] = self.details_hist['D_T_BCE_fake_real_F'][-1:]
             self.details_hist['D_zCR'] = self.details_hist['D_zCR'][-1:]
             self.details_hist['D_bCR'] = self.details_hist['D_bCR'][-1:]
 
-            self.details_hist['D_V_CE_Class_R'] = self.details_hist['D_V_CE_Class_R'][-1:]
             self.details_hist['D_V_BCE_fake_real_R'] = self.details_hist['D_V_BCE_fake_real_R'][-1:]
-            self.details_hist['D_V_CE_Class_F'] = self.details_hist['D_V_CE_Class_F'][-1:]
             self.details_hist['D_V_BCE_fake_real_F'] = self.details_hist['D_V_BCE_fake_real_F'][-1:]
             ##Para poder tomar el promedio por epoch
             iterIniTrain = 1
@@ -543,8 +556,8 @@ class MyACGAN(object):
             if epoch % 10 == 0:
                 self.save(str(epoch))
                 with torch.no_grad():
-                    self.visualize_results(epoch, dataprint=self.dataprint, visual=self.visImages)
-                    self.visualize_results(epoch, dataprint=self.dataprint_test, visual=self.visImagesTest)
+                    self.visualize_results(epoch, dataprint=self.dataprint, visual=visImages)
+                    self.visualize_results(epoch, dataprint=self.dataprint_test, visual=visImagesTest)
 
         self.train_hist['total_time'].append(time.time() - start_time)
         print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
@@ -556,8 +569,9 @@ class MyACGAN(object):
         #                         self.epoch)
         #utils.loss_plot(self.train_hist, os.path.join(self.save_dir, self.dataset, self.model_name), self.model_name)
 
-    def visualize_results(self, epoch, dataprint, visual, fix=True):
+    def visualize_results(self, epoch, dataprint, visual, name= "test"):
         with torch.no_grad():
+            self.G.eval()
 
             #if not os.path.exists(self.result_dir + '/' + self.dataset + '/' + self.model_name):
             #    os.makedirs(self.result_dir + '/' + self.dataset + '/' + self.model_name)
@@ -585,11 +599,11 @@ class MyACGAN(object):
                 x_im_input = x_im.repeat(2, 1, 1, 1)
                 x_dep_input = x_dep.repeat(2, 1, 1, 1)
 
+
                 sample_y_ = torch.zeros((self.class_num, 1, self.imageDim, self.imageDim))
                 for i in range(self.class_num):
-                    if (int(i % self.class_num) == 1):
-                        sample_y_[i] = torch.ones((1, self.imageDim, self.imageDim))
-
+                    if(int(i % self.class_num) == 1):
+                        sample_y_[i] = torch.ones(( 1, self.imageDim, self.imageDim))
 
                 if self.gpu_mode:
                     sample_y_, x_im_input, x_dep_input = sample_y_.cuda(), x_im_input.cuda(), x_dep_input.cuda()
@@ -642,7 +656,10 @@ class MyACGAN(object):
 
                 iter+=1
 
-            visual.plot(epoch, newSample, int(len(newSample) /self.cantImages))
+            if self.visdom:
+                visual.plot(epoch, newSample, int(len(newSample) /self.cantImages))
+            else:
+                utils.save_wiggle(newSample, self.cantImages, name)
         ##TENGO QUE HACER QUE SAMPLES TENGAN COMO MAXIMO self.class_num * self.class_num
 
         # utils.save_images(newSample[:, :, :, :], [image_frame_dim * cantidadIm , image_frame_dim * (self.class_num+2)],
@@ -712,8 +729,11 @@ class MyACGAN(object):
 
     def wiggleEf(self):
         seed, epoch = self.seed_load.split('_')
-        self.visWiggle = utils.VisdomImagePlotter(env_name='Cobo_depth_wiggle_' + seed)
-        self.visualize_results(epoch=epoch, dataprint=self.dataprint_test, visual=self.visWiggle)
+        if self.visdom:
+            visWiggle = utils.VisdomImagePlotter(env_name='Cobo_depth_wiggle_' + seed)
+            self.visualize_results(epoch=epoch, dataprint=self.dataprint_test, visual=visWiggle)
+        else:
+            self.visualize_results(epoch=epoch, dataprint=self.dataprint_test, visual=None, name = self.seed_load)
 
     def rearrengeData(self, Data):
 

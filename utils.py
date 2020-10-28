@@ -9,6 +9,34 @@ from torchvision import datasets, transforms
 import visdom
 import random
 
+def save_wiggle(images, rows=1, name="test"):
+
+    width = images[0].shape[1]
+    height = images[0].shape[2]
+    columns = int(len(images)/rows)
+    rows = int(rows)
+    margin = 4
+
+    total_width = (width + margin) * columns
+    total_height = (height + margin) * rows
+
+    new_im = Image.new('RGB', (total_width, total_height))
+
+    transToPil = transforms.ToPILImage()
+
+    x_offset = 3
+    y_offset = 3
+    for y in range(rows):
+        for x in range(columns):
+            im = images[x+y*columns]
+            im = transToPil((im+1)/2)
+            new_im.paste(im, (x_offset, y_offset))
+            x_offset += width + margin
+        x_offset = 3
+        y_offset += height + margin
+
+    new_im.save('./WiggleResults/' + name + '.jpg')
+
 def load_mnist(dataset):
     data_dir = os.path.join("./data", dataset)
 
@@ -175,9 +203,7 @@ class VisdomLinePlotter(object):
         #y1 = hist['D_loss_'+split_name]
         #y2 = hist['G_loss_'+split_name]
 
-        if (x[0] != x[1]):
-            y[0] = [0.0] * (len(y[1]) - len(y[0])) + y[0]
-            x[0] = x[1]
+
         np.array(x)
 
 
@@ -275,7 +301,7 @@ class VisdomImagePlotter(object):
         )
 
 
-def augmentData(x,y, randomness = 1):
+def augmentData(x,y, randomness = 1, percent_noise = 0.1):
     """
     :param x: image X
     :param y: image Y
@@ -290,6 +316,12 @@ def augmentData(x,y, randomness = 1):
     for aumX, aumY in zip(x,y):
 
         # Preparing to get image # transforms.ToPILImage()(pil_to_tensor.squeeze_(0))
+        #percent_noise = percent_noise
+        #noise = torch.randn(aumX.shape)
+
+        #aumX = noise * percent_noise + aumX * (1 - percent_noise)
+        #aumY = noise * percent_noise + aumY * (1 - percent_noise)
+
         aumX = (aumX + 1) / 2
         aumY = (aumY + 1) / 2
 

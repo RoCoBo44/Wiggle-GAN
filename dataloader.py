@@ -85,86 +85,6 @@ class ImagesDataset(Dataset):
             contrast = random.uniform(0.4, 2)
             gamma = random.uniform(0.7, 1.3)
             hue = random.uniform(-0.3, 0.3)  # 0.01
-        """""
-        sample = np.array([])
-        for i in range(0,self.nCameras):
-            oneCameRoot = self.root_dir + '/CAM' + str(i)
-
-            #foto normal
-            img_name = os.path.join(oneCameRoot, "n_" + idx+ ".png")
-            img = Image.open(img_name).convert('RGB')#.convert('L')
-            if (img.size[0] != self.imageDim or img.size[1] !=self.imageDim):
-                img = img.resize((self.imageDim,self.imageDim))
-
-            if self.transform:
-                img = transforms.functional.adjust_gamma(img, gamma)
-                img = transforms.functional.adjust_brightness(img, brighness)
-                img = transforms.functional.adjust_contrast(img, contrast)
-                img = transforms.functional.adjust_saturation(img, saturation)
-                img = transforms.functional.adjust_hue(img, hue)
-                #img.show()
-
-            data = np.array(img)
-            #print(data.shape)
-            data = (data/ 255.0)
-            data = data.transpose(2, 0, 1)
-            #print(data.shape)
-
-            #bright_tform = Grayscale(keep_channels=True)
-            #t_data = bright_tform(th.from_numpy(data))
-            #t_data = t_data.numpy()
-
-
-
-
-
-            #t_data2 = t_data.transpose(1, 2, 0)
-            #print(t_data2.shape)
-            #t_data2 = t_data2 * 255.0
-            #t_data2 = t_data2.astype(np.uint8)
-            #print(t_data)
-            #outIm = Image.fromarray(t_data2, mode='RGB')
-            #outIm.show()
-
-
-            ## H W C
-
-
-            #foto produndidad
-            img_name = os.path.join(oneCameRoot, "d_" + idx + ".png")
-            #print (Image.open(img_name).mode)
-            img = Image.open(img_name).convert('I')#.convert('RGB')#.convert('L') #el LA es para blanco y negro
-            img = convert_I_to_L(img).convert('RGB')# para 3 canales
-            if (img.size[0] != self.imageDim or img.size[1] != self.imageDim):
-                img = img.resize((self.imageDim, self.imageDim))
-            data2 = np.array(img)
-            #print (data2)
-            data2 = np.true_divide(data2, [255.0], out=None)
-            #print (data2.shape)
-            #data2 = np.expand_dims(data2, axis=2)
-            data2 = data2.transpose(2, 0, 1)
-
-            #show_image(data2, grey=False)
-
-            #Para que se guarde la imagen
-            #data3 = ((data + 1.0) / 2.0 ) * 255.0
-            #data3 = data3.transpose(1, 2, 0)
-            #data3 = data3.astype(np.uint8)  ## int != uint8
-            #print(data3)
-            #print(data3.shape)
-            #outIm = Image.fromarray(data3,mode='RGB')
-            #outIm.show()
-            #outIm.save(self.root_dir + '\CAM' + "im.png")
-            #stop
-           # print (data.shape)
-            s = np.array([data,data2])
-           # print (s.shape)
-
-            if sample.size == 0:
-                sample = s
-            else:
-                sample = np.concatenate([sample,s])
-        """""
 
         oneCameRoot = self.root_dir + '/CAM0'
 
@@ -219,9 +139,9 @@ class ImagesDataset(Dataset):
 
         #random izq o derecha
         if (bool(random.getrandbits(1))):
-            sample = {'x_im': x1, 'x_dep': x1_dep, 'y_im': x2, 'y_dep': x2_dep, 'y_': torch.tensor(1.)}
+            sample = {'x_im': x1, 'x_dep': x1_dep, 'y_im': x2, 'y_dep': x2_dep, 'y_': torch.ones(1, self.imageDim, self.imageDim)}
         else:
-            sample = {'x_im': x2, 'x_dep': x2_dep, 'y_im': x1, 'y_dep': x1_dep, 'y_': torch.tensor(0.)}
+            sample = {'x_im': x2, 'x_dep': x2_dep, 'y_im': x1, 'y_dep': x1_dep, 'y_': torch.zeros(1, self.imageDim, self.imageDim)}
 
         return sample
 
