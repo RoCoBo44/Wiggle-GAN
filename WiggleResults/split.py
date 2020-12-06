@@ -1,9 +1,15 @@
 import os
 from PIL import Image
+import argparse
+
+parser = argparse.ArgumentParser(description='change to useful name')
+parser.add_argument('--dim', default=128, type=int, help='dimention image')
+args = parser.parse_args()
 
 path = "."
 dirs = os.listdir(path)
 
+dim = args.dim
 
 def gif_order (data, center=True):
     gif = []
@@ -47,6 +53,7 @@ def gif_order (data, center=True):
     #gsdfgsfgf
     return gif
 
+
 # This would print all the files and directories
 for file in dirs:
     if ".jpg" in file or ".png" in file:
@@ -62,15 +69,15 @@ for file in dirs:
         i = 0
         while (pointtop < height):
             while (pointleft < width):
-                im1 = im.crop((pointleft, pointtop, 128+pointleft, 128+pointtop))
+                im1 = im.crop((pointleft, pointtop, dim+pointleft, dim+pointtop))
                 rowImages.append(im1.quantize())
                 #im1.show()
-                pointleft+= 128+4
+                pointleft+= dim+4
             # Ya tengo todas las imagenes podria hacer el gif aca
             rowImages = gif_order(rowImages,center=False)
             name = file[:-4] + "_" + str(i) + '.gif'
             rowImages[0].save(name, save_all=True,format='GIF', append_images=rowImages[1:], optimize=True, duration=100, loop=0)
-            pointtop += 128 + 4
+            pointtop += dim + 4
             pointleft = 3
             rowImages = []
             i+=1
