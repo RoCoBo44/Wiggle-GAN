@@ -1,5 +1,5 @@
-﻿# pytorch-generative-model-collections
-Original : [[Tensorflow version]](https://github.com/hwalsuklee/tensorflow-generative-model-collections)
+﻿# Wiggle-GAN
+Base : [[Tensorflow version]](https://github.com/hwalsuklee/tensorflow-generative-model-collections)
 
 This repository is included code for CPU mode Pytorch, but i did not test. I tested only in GPU mode Pytorch.
 
