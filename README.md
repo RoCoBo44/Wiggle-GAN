@@ -64,10 +64,10 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 
 ## Changing depth map in order to improve the results
 
-| AE | Wiggle-GAN | Wiggle-GAN noCR |
+| Image (input) | DepthMap (input) | Wiggle-GAN |
 |:---:|:---:|:---:|
-| <img src="/git_images/depth_map_changes/input.png" width="128" height="128"> | <img src="/git_images/depth_map_changes/1_d.png" width="128" height="128">  |![](/git_images/depth_map_changes/1.gif) |
-| <img src="/git_images/depth_map_changes/input.png" width="128" height="128"> | <img src="/git_images/depth_map_changes/2_d.png" width="128" height="128">  |![](/git_images/depth_map_changes/2.gif) |
+| <img src="/git_images/depth_map_changes/input.png" width="256" height="256"> | <img src="/git_images/depth_map_changes/1_d.png" width="256" height="256">  |![](/git_images/depth_map_changes/prev.gif) |
+| <img src="/git_images/depth_map_changes/input.png" width="256" height="256"> | <img src="/git_images/depth_map_changes/2_d.png" width="256" height="256">  |![](/git_images/depth_map_changes/post.gif) |
 
 ## Development Environment
 * Ubuntu 16.04 LTS
