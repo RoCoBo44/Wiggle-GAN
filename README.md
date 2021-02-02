@@ -5,7 +5,7 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 
 ## Results
 
-| Image(*Input*) | DepthMap(*Input*) | AE(*output*) | Wiggle-GAN(*output*) | Wiggle-GAN noCR(*output*) |
+| Image (*Input*) | DepthMap (*Input*) | AE (*output*) | Wiggle-GAN (*output*) | Wiggle-GAN noCR (*output*) |
 |:---:|:---:|:---:|:---:|:---:|
 | <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/Solutions/1_ae.gif) | ![](/git_images/Solutions/1_w.gif)|![](/git_images/Solutions/1_ncr.gif) |
 | <img src="/Images/Input-Test/2.png" width="128" height="128"> | <img src="/Images/Input-Test/2_d.png" width="128" height="128">  |![](/git_images/Solutions/2_ae.gif) | ![](/git_images/Solutions/2_w.gif)|![](/git_images/Solutions/2_ncr.gif) |
@@ -15,6 +15,35 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 | <img src="/Images/Input-Test/10.png" width="128" height="128"> | <img src="/Images/Input-Test/10_d.png" width="128" height="128">  |![](/git_images/Solutions/10_ae.gif) | ![](/git_images/Solutions/10_w.gif)|![](/git_images/Solutions/10_ncr.gif) |
 | <img src="/Images/Input-Test/11.png" width="128" height="128"> | <img src="/Images/Input-Test/11_d.png" width="128" height="128">  |![](/git_images/Solutions/11_ae.gif) | ![](/git_images/Solutions/11_w.gif)|![](/git_images/Solutions/11_ncr.gif) |
 | <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/Solutions/12_ae.gif) | ![](/git_images/Solutions/12_w.gif)|![](/git_images/Solutions/12_ncr.gif) |
+
+
+## Changing the λ_influenceL1
+
+### In Wiggle-GAN
+
+| Image (*Input*) | DepthMap (*Input*) | λ_infL1 = 0 | λ_infL1 = 2 | λ_infL1 = 50 |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/L0/1_w.gif) | ![](/git_images/L2/1_w.gif)|![](/git_images/Solutions/1_w.gif) |
+| <img src="/Images/Input-Test/2.png" width="128" height="128"> | <img src="/Images/Input-Test/2_d.png" width="128" height="128">  |![](/git_images/L0/2_w.gif) | ![](/git_images/L2/2_w.gif)|![](/git_images/Solutions/2_w.gif) |
+| <img src="/Images/Input-Test/4.png" width="128" height="128"> | <img src="/Images/Input-Test/4_d.png" width="128" height="128">  |![](/git_images/L0/4_w.gif) | ![](/git_images/L2/4_w.gif)|![](/git_images/Solutions/4_w.gif) |
+| <img src="/Images/Input-Test/8.png" width="128" height="128"> | <img src="/Images/Input-Test/8_d.png" width="128" height="128">  |![](/git_images/L0/8_w.gif) | ![](/git_images/L2/8_w.gif)|![](/git_images/Solutions/8_w.gif) |
+| <img src="/Images/Input-Test/9.png" width="128" height="128"> | <img src="/Images/Input-Test/9_d.png" width="128" height="128">  |![](/git_images/L0/9_w.gif) | ![](/git_images/L2/9_w.gif)|![](/git_images/Solutions/9_w.gif) |
+| <img src="/Images/Input-Test/10.png" width="128" height="128"> | <img src="/Images/Input-Test/10_d.png" width="128" height="128">  |![](/git_images/L0/10_w.gif) | ![](/git_images/L2/10_w.gif)|![](/git_images/Solutions/10_w.gif) |
+| <img src="/Images/Input-Test/11.png" width="128" height="128"> | <img src="/Images/Input-Test/11_d.png" width="128" height="128">  |![](/git_images/L0/11_w.gif) | ![](/git_images/L2/11_w.gif)|![](/git_images/Solutions/11_w.gif) |
+| <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/L0/12_w.gif) | ![](/git_images/L2/12_w.gif)|![](/git_images/Solutions/12_w.gif) |
+
+### In Wiggle-GAN with no consistency regularization
+
+| Image (*Input*) | DepthMap (*Input*) | λ_infL1 = 0 | λ_infL1 = 2 | λ_infL1 = 50 |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/L0/1_ncr.gif) | ![](/git_images/L2/1_ncr.gif)|![](/git_images/Solutions/1_ncr.gif) |
+| <img src="/Images/Input-Test/2.png" width="128" height="128"> | <img src="/Images/Input-Test/2_d.png" width="128" height="128">  |![](/git_images/L0/2_ncr.gif) | ![](/git_images/L2/2_ncr.gif)|![](/git_images/Solutions/2_ncr.gif) |
+| <img src="/Images/Input-Test/4.png" width="128" height="128"> | <img src="/Images/Input-Test/4_d.png" width="128" height="128">  |![](/git_images/L0/4_ncr.gif) | ![](/git_images/L2/4_ncr.gif)|![](/git_images/Solutions/4_ncr.gif) |
+| <img src="/Images/Input-Test/8.png" width="128" height="128"> | <img src="/Images/Input-Test/8_d.png" width="128" height="128">  |![](/git_images/L0/8_ncr.gif) | ![](/git_images/L2/8_ncr.gif)|![](/git_images/Solutions/8_ncr.gif) |
+| <img src="/Images/Input-Test/9.png" width="128" height="128"> | <img src="/Images/Input-Test/9_d.png" width="128" height="128">  |![](/git_images/L0/9_ncr.gif) | ![](/git_images/L2/9_ncr.gif)|![](/git_images/Solutions/9_ncr.gif) |
+| <img src="/Images/Input-Test/10.png" width="128" height="128"> | <img src="/Images/Input-Test/10_d.png" width="128" height="128">  |![](/git_images/L0/10_ncr.gif) | ![](/git_images/L2/10_ncr.gif)|![](/git_images/Solutions/10_ncr.gif) |
+| <img src="/Images/Input-Test/11.png" width="128" height="128"> | <img src="/Images/Input-Test/11_d.png" width="128" height="128">  |![](/git_images/L0/11_ncr.gif) | ![](/git_images/L2/11_ncr.gif)|![](/git_images/Solutions/11_ncr.gif) |
+| <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/L0/12_ncr.gif) | ![](/git_images/L2/12_ncr.gif)|![](/git_images/Solutions/12_ncr.gif) |
 
 
 ## Development Environment
