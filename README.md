@@ -3,6 +3,14 @@ Base : [[Tensorflow version]](https://github.com/hwalsuklee/tensorflow-generativ
 
 This repository is included code for CPU mode Pytorch, but i did not test. I tested only in GPU mode Pytorch.
 
+## Results
+
+| Image(*Input*) | DepthMap(*Input*) | AE(*output*) | Wiggle-GAN(*output*) | Wiggle-GAN noCR(*output*) |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/Solutions/1_ae.gif) | ![](/git_images/Solutions/1_w.gif)|![](/git_images/Solutions/1_ncr.gif) |
+
+
+
 
 ## Development Environment
 * Ubuntu 16.04 LTS
