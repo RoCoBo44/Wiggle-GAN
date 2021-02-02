@@ -46,7 +46,7 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 | <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/L0/12_ncr.gif) | ![](/git_images/L2/12_ncr.gif)|![](/git_images/Solutions/12_ncr.gif) |
 
 
-## Incrementing the shift value
+## Incrementing the shift value to 10
 
 | AE | Wiggle-GAN | Wiggle-GAN noCR |
 |:---:|:---:|:---:|
@@ -61,6 +61,13 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 |![](/git_images/shifts/Corr_AE_8.gif) | ![](/git_images/shifts/Corr_W_8.gif)|![](/git_images/shifts/Corr_WnoCR_8.gif) |
 |![](/git_images/shifts/Corr_AE_9.gif) | ![](/git_images/shifts/Corr_W_9.gif)|![](/git_images/shifts/Corr_WnoCR_9.gif) |
 |![](/git_images/shifts/Corr_AE_10.gif) | ![](/git_images/shifts/Corr_W_10.gif)|![](/git_images/shifts/Corr_WnoCR_10.gif) |
+
+## Changing depth map in order to improve the results
+
+| AE | Wiggle-GAN | Wiggle-GAN noCR |
+|:---:|:---:|:---:|
+| <img src="/git_images/depth_map_changes/input.png" width="128" height="128"> | <img src="/git_images/depth_map_changes/1_d.png" width="128" height="128">  |![](/git_images/depth_map_changes/1.gif) |
+| <img src="/git_images/depth_map_changes/input.png" width="128" height="128"> | <img src="/git_images/depth_map_changes/2_d.png" width="128" height="128">  |![](/git_images/depth_map_changes/2.gif) |
 
 ## Development Environment
 * Ubuntu 16.04 LTS
