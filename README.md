@@ -46,6 +46,22 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 | <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/L0/12_ncr.gif) | ![](/git_images/L2/12_ncr.gif)|![](/git_images/Solutions/12_ncr.gif) |
 
 
+## Incrementing the shift value
+
+| AE | Wiggle-GAN | Wiggle-GAN noCR |
+|:---:|:---:|:---:|
+|![](/git_images/shifts/Corr_AE_0.gif) | ![](/git_images/shifts/Corr_W_0.gif)|![](/git_images/shifts/Corr_WnoCR_0.gif) |
+|![](/git_images/shifts/Corr_AE_1.gif) | ![](/git_images/shifts/Corr_W_1.gif)|![](/git_images/shifts/Corr_WnoCR_1.gif) |
+|![](/git_images/shifts/Corr_AE_2.gif) | ![](/git_images/shifts/Corr_W_2.gif)|![](/git_images/shifts/Corr_WnoCR_2.gif) |
+|![](/git_images/shifts/Corr_AE_3.gif) | ![](/git_images/shifts/Corr_W_3.gif)|![](/git_images/shifts/Corr_WnoCR_3.gif) |
+|![](/git_images/shifts/Corr_AE_4.gif) | ![](/git_images/shifts/Corr_W_4.gif)|![](/git_images/shifts/Corr_WnoCR_4.gif) |
+|![](/git_images/shifts/Corr_AE_5.gif) | ![](/git_images/shifts/Corr_W_5.gif)|![](/git_images/shifts/Corr_WnoCR_5.gif) |
+|![](/git_images/shifts/Corr_AE_6.gif) | ![](/git_images/shifts/Corr_W_6.gif)|![](/git_images/shifts/Corr_WnoCR_6.gif) |
+|![](/git_images/shifts/Corr_AE_7.gif) | ![](/git_images/shifts/Corr_W_7.gif)|![](/git_images/shifts/Corr_WnoCR_7.gif) |
+|![](/git_images/shifts/Corr_AE_8.gif) | ![](/git_images/shifts/Corr_W_8.gif)|![](/git_images/shifts/Corr_WnoCR_8.gif) |
+|![](/git_images/shifts/Corr_AE_9.gif) | ![](/git_images/shifts/Corr_W_9.gif)|![](/git_images/shifts/Corr_WnoCR_9.gif) |
+|![](/git_images/shifts/Corr_AE_10.gif) | ![](/git_images/shifts/Corr_W_10.gif)|![](/git_images/shifts/Corr_WnoCR_10.gif) |
+
 ## Development Environment
 * Ubuntu 16.04 LTS
 * NVIDIA GTX 1080 ti
