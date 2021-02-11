@@ -5,16 +5,16 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 
 ## Results
 
-| Image (*Input*) | DepthMap (*Input*) | AE (*output*) | Wiggle-GAN (*output*) | Wiggle-GAN noCR (*output*) |
-|:---:|:---:|:---:|:---:|:---:|
-| <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/Solutions/12_ae.gif) | ![](/git_images/Solutions/12_w.gif)|![](/git_images/Solutions/12_ncr.gif) |
-| <img src="/Images/Input-Test/9.png" width="128" height="128"> | <img src="/Images/Input-Test/9_d.png" width="128" height="128">  |![](/git_images/Solutions/9_ae.gif) | ![](/git_images/Solutions/9_w.gif)|![](/git_images/Solutions/9_ncr.gif) |
-| <img src="/Images/Input-Test/11.png" width="128" height="128"> | <img src="/Images/Input-Test/11_d.png" width="128" height="128">  |![](/git_images/Solutions/11_ae.gif) | ![](/git_images/Solutions/11_w.gif)|![](/git_images/Solutions/11_ncr.gif) |
-| <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/Solutions/1_ae.gif) | ![](/git_images/Solutions/1_w.gif)|![](/git_images/Solutions/1_ncr.gif) |
-| <img src="/Images/Input-Test/8.png" width="128" height="128"> | <img src="/Images/Input-Test/8_d.png" width="128" height="128">  |![](/git_images/Solutions/8_ae.gif) | ![](/git_images/Solutions/8_w.gif)|![](/git_images/Solutions/8_ncr.gif) |
-| <img src="/Images/Input-Test/2.png" width="128" height="128"> | <img src="/Images/Input-Test/2_d.png" width="128" height="128">  |![](/git_images/Solutions/2_ae.gif) | ![](/git_images/Solutions/2_w.gif)|![](/git_images/Solutions/2_ncr.gif) |
-| <img src="/Images/Input-Test/10.png" width="128" height="128"> | <img src="/Images/Input-Test/10_d.png" width="128" height="128">  |![](/git_images/Solutions/10_ae.gif) | ![](/git_images/Solutions/10_w.gif)|![](/git_images/Solutions/10_ncr.gif) |
-| <img src="/Images/Input-Test/4.png" width="128" height="128"> | <img src="/Images/Input-Test/4_d.png" width="128" height="128">  |![](/git_images/Solutions/4_ae.gif) | ![](/git_images/Solutions/4_w.gif)|![](/git_images/Solutions/4_ncr.gif) |
+| id | Image (*Input*) | DepthMap (*Input*) | AE (*output*) | Wiggle-GAN (*output*) | Wiggle-GAN noCR (*output*) |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+|a| <img src="/Images/Input-Test/12.png" width="128" height="128"> | <img src="/Images/Input-Test/12_d.png" width="128" height="128">  |![](/git_images/Solutions/12_ae.gif) | ![](/git_images/Solutions/12_w.gif)|![](/git_images/Solutions/12_ncr.gif) |
+|b| <img src="/Images/Input-Test/9.png" width="128" height="128"> | <img src="/Images/Input-Test/9_d.png" width="128" height="128">  |![](/git_images/Solutions/9_ae.gif) | ![](/git_images/Solutions/9_w.gif)|![](/git_images/Solutions/9_ncr.gif) |
+|c| <img src="/Images/Input-Test/11.png" width="128" height="128"> | <img src="/Images/Input-Test/11_d.png" width="128" height="128">  |![](/git_images/Solutions/11_ae.gif) | ![](/git_images/Solutions/11_w.gif)|![](/git_images/Solutions/11_ncr.gif) |
+|d| <img src="/Images/Input-Test/1.png" width="128" height="128"> | <img src="/Images/Input-Test/1_d.png" width="128" height="128">  |![](/git_images/Solutions/1_ae.gif) | ![](/git_images/Solutions/1_w.gif)|![](/git_images/Solutions/1_ncr.gif) |
+|e| <img src="/Images/Input-Test/8.png" width="128" height="128"> | <img src="/Images/Input-Test/8_d.png" width="128" height="128">  |![](/git_images/Solutions/8_ae.gif) | ![](/git_images/Solutions/8_w.gif)|![](/git_images/Solutions/8_ncr.gif) |
+|f| <img src="/Images/Input-Test/2.png" width="128" height="128"> | <img src="/Images/Input-Test/2_d.png" width="128" height="128">  |![](/git_images/Solutions/2_ae.gif) | ![](/git_images/Solutions/2_w.gif)|![](/git_images/Solutions/2_ncr.gif) |
+|g| <img src="/Images/Input-Test/10.png" width="128" height="128"> | <img src="/Images/Input-Test/10_d.png" width="128" height="128">  |![](/git_images/Solutions/10_ae.gif) | ![](/git_images/Solutions/10_w.gif)|![](/git_images/Solutions/10_ncr.gif) |
+|h| <img src="/Images/Input-Test/4.png" width="128" height="128"> | <img src="/Images/Input-Test/4_d.png" width="128" height="128">  |![](/git_images/Solutions/4_ae.gif) | ![](/git_images/Solutions/4_w.gif)|![](/git_images/Solutions/4_ncr.gif) |
 
 
 ## Changing the λ_influenceL1
