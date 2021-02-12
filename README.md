@@ -3,6 +3,14 @@ Base : [[Tensorflow version]](https://github.com/hwalsuklee/tensorflow-generativ
 
 This repository is included code for CPU mode Pytorch, but i did not test. I tested only in GPU mode Pytorch.
 
+## What is a Wigglegram?
+
+Wigglegrams are a series of photos of the particular object from a different angle. When the photos are combined in a short animation they become three-dimensional thanks to optical illusion.
+
+Here there are some examples:
+![https://www.reddit.com/r/wigglegrams/comments/hdls0w/tame_impala_lolla_chicago_2019_nishika_n8000_on/](/git_images/Intro/mikewinsdaly.gif)
+![https://i.pinimg.com/originals/9e/c6/cb/9ec6cb547f0e987784f0de697783b4fe.gif](/git_images/Intro/wiggle_example.gif)
+
 ## Results
 
 | id | Image (*Input*) | DepthMap (*Input*) | AE (*output*) | Wiggle-GAN (*output*) | Wiggle-GAN noCR (*output*) |
