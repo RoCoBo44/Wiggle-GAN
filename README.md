@@ -8,8 +8,8 @@ This repository is included code for CPU mode Pytorch, but i did not test. I tes
 Wigglegrams are a series of photos of the particular object from a different angle. When the photos are combined in a short animation they become three-dimensional thanks to optical illusion.
 
 Here there are some examples:
-![https://www.reddit.com/r/wigglegrams/comments/hdls0w/tame_impala_lolla_chicago_2019_nishika_n8000_on/](/git_images/Intro/mikewinsdaly.gif)
-![https://i.pinimg.com/originals/9e/c6/cb/9ec6cb547f0e987784f0de697783b4fe.gif](/git_images/Intro/wiggle_example.gif)
+
+<img src="/git_images/Intro/mikewinsdaly.gif" width="256" height="256"/> <img src="/git_images/Intro/wiggle_example.gif" width="256" height="256"/>
 
 ## Results
 
