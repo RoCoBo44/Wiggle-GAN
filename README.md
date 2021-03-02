@@ -1,7 +1,4 @@
 ﻿# Wiggle-GAN
-Base : [[Tensorflow version]](https://github.com/hwalsuklee/tensorflow-generative-model-collections)
-
-This repository is included code for CPU mode Pytorch, but i did not test. I tested only in GPU mode Pytorch.
 
 ## What is a Wigglegram?
 
@@ -76,6 +73,19 @@ Here there are some examples:
 |:---:|:---:|:---:|
 | <img src="/git_images/depth_map_changes/input.png" width="256" height="256"> | <img src="/git_images/depth_map_changes/1_d.png" width="256" height="256">  |![](/git_images/depth_map_changes/prev.gif) |
 | <img src="/git_images/depth_map_changes/input.png" width="256" height="256"> | <img src="/git_images/depth_map_changes/2_d.png" width="256" height="256">  |![](/git_images/depth_map_changes/post.gif) |
+
+## Splitting to work with bigger images
+
+![](/git_images/split/small_complete.gif)
+
+![](/git_images/split/small_top_left.gif)![](/git_images/split/small_top_right.gif)
+![](/git_images/split/small_down_left.gif)![](/git_images/split/small_down_right.gif)
+
+![](/git_images/split/big_complete.gif)
+
+![](/git_images/split/big_top_left.gif)![](/git_images/split/big_top_right.gif)
+![](/git_images/split/big_down_left.gif)![](/git_images/split/big_down_right.gif)
+
 
 ## Development Environment
 * Ubuntu 16.04 LTS
