@@ -76,15 +76,15 @@ Here there are some examples:
 
 ## Splitting to work with bigger images
 
-![](/git_images/split/small_complete.gif)
+![](/git_images/split/small_complete.gif)<br/>
 
-![](/git_images/split/small_top_left.gif)![](/git_images/split/small_top_right.gif)
-![](/git_images/split/small_down_left.gif)![](/git_images/split/small_down_right.gif)
+![](/git_images/split/small_top_left.gif)![](/git_images/split/small_top_right.gif)<br/>
+![](/git_images/split/small_down_left.gif)![](/git_images/split/small_down_right.gif)<br/>
 
-![](/git_images/split/big_complete.gif)
+![](/git_images/split/big_complete.gif)<br/>
 
-![](/git_images/split/big_top_left.gif)![](/git_images/split/big_top_right.gif)
-![](/git_images/split/big_down_left.gif)![](/git_images/split/big_down_right.gif)
+![](/git_images/split/big_top_left.gif)![](/git_images/split/big_top_right.gif)<br/>
+![](/git_images/split/big_down_left.gif)![](/git_images/split/big_down_right.gif)<br/>
 
 
 ## Development Environment
