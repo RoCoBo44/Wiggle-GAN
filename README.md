@@ -83,9 +83,6 @@ Here there are some examples:
 
 ![](/git_images/split/big_complete.gif)<br/>
 
-![](/git_images/split/big_top_left.gif)![](/git_images/split/big_top_right.gif)<br/>
-![](/git_images/split/big_down_left.gif)![](/git_images/split/big_down_right.gif)<br/>
-
 
 ## Development Environment
 * Ubuntu 16.04 LTS
