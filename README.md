@@ -122,7 +122,3 @@ Here there are some examples:
 * urllib3==1.25.7
 * visdom==0.1.8.9
 * websocket-client==0.56.0
-
-## Acknowledgements
-This implementation has been based on [tensorflow-generative-model-collections](https://github.com/hwalsuklee/tensorflow-generative-model-collections) and tested with Pytorch 0.4.0 on Ubuntu 16.04 using GPU.
-
