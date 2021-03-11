@@ -2,8 +2,8 @@ import argparse
 import os
 import torch
 from WiggleGAN import WiggleGAN
-from MyACGAN import MyACGAN
-from MyGAN import MyGAN
+#from MyACGAN import MyACGAN
+#from MyGAN import MyGAN
 
 """parsing and configuration"""
 
@@ -46,6 +46,7 @@ def parse_args():
     parser.add_argument('--visdom', type=str2bool, default=True)
     parser.add_argument('--lambdaL1', type=int, default=100)
     parser.add_argument('--clipping', type=float, default=-1)
+    parser.add_argument('--depth', type=str2bool, default=True)
 
     return check_args(parser.parse_args())
 
@@ -106,10 +107,10 @@ def main():
         # declare instance for GAN
     if args.gan_type == 'WiggleGAN':
         gan = WiggleGAN(args)
-    elif args.gan_type == 'MyACGAN':
-        gan = MyACGAN(args)
-    elif args.gan_type == 'MyGAN':
-        gan = MyGAN(args)
+    #elif args.gan_type == 'MyACGAN':
+    #    gan = MyACGAN(args)
+    #elif args.gan_type == 'MyGAN':
+    #    gan = MyGAN(args)
     else:
         raise Exception("[!] There is no option for " + args.gan_type)
 
@@ -117,8 +118,6 @@ def main():
     if (args.wiggleDepth < 0):
         gan.train()
         print(" [*] Training finished!")
-
-
     else:
         gan.wiggleEf()
         print(" [*] Wiggle finished!")
