@@ -8,6 +8,32 @@ Here there are some examples:
 
 <img src="/git_images/Intro/mikewinsdaly.gif" width="256" height="256"/> <img src="/git_images/Intro/wiggle_example.gif" width="256" height="256"/>
 
+
+## Our solution
+
+In our solution we propose the use of a neural network to generate a new image given a picture, his depth map and a direction. Also, in order to produce new samples the NN outputs the depth map that correlates to the output image:
+
+<img src="/git_images/Architectures/general_solution.png" />
+
+To achieve greater results we implemented a Wasserstein Generative Adversarial Network (WGAN) with Consisty Regularization and a L1 loss between the false image and expected one. The final loss can be seen in the image below:
+
+<img src="/git_images/Losses/big_loss.png" />
+
+Moreover, our generator is based on the U-Net architecture but we added another decoder: 
+
+<img src="/git_images/Architectures/generator.png" />
+
+The full Wiggle-GAN architecture can be seen in the next image, the black box represents the generator and T() means the transformation made to augmentate the data (for the CR loss)
+
+<img src="/git_images/Architectures/critic.png" />
+
+## Google Colab
+
+Follow this steps if you want to generate your own wigglegrams:
+
+1) Copy the folder with the checkpoints (https://drive.google.com/drive/folders/1NDtN_Eem1NYfibuWHlGY1G9deKNzJrw8?usp=sharing) in your google drive, and be sure to save it in the exact rute (Colab Notebooks/DataWiggle).
+2) Go to this Google Colab File (https://colab.research.google.com/drive/1N5HJ1geVM1ymLoE5C2jkLs3F_tQn-s-r?usp=sharing) and execute all the blocks, remember to login with your google account in order to access the checkpoints.
+
 ## Results
 
 | id | Image (*Input*) | DepthMap (*Input*) | AE (*output*) | Wiggle-GAN (*output*) | Wiggle-GAN noCR (*output*) |
@@ -84,7 +110,7 @@ Here there are some examples:
 ![](/git_images/split/big_complete.gif)<br/>
 
 
-## Development Environment
+## Development environment
 * Ubuntu 16.04 LTS
 * NVIDIA GTX 1080 ti
 * cuda 9.0
