@@ -8,5 +8,14 @@ depth_estimation/MyTest_results/*
 tcl/*
 data/*
 results/*
+assets/*
 Images/ActualDataset/*
+Images/Dataset2.0/*
+Images/Input-Test2.0/*
+WiggleGAN_mod.py
+WiggleGAN_noCycle.py
 rcobo@deep.pladema.net
+MyGAN.py
+MyACGAN.py
+execute.sh
+delete_env.py

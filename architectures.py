@@ -244,7 +244,7 @@ class UnetConvBlock(nn.Module):
     Basic Dropout (optional)
     '''
 
-    def __init__(self, in_size, out_size, dropout=0.0, stride=1):
+    def __init__(self, in_size, out_size, dropout=0.0, stride=1, batch_norm = True):
         '''
         Constructor of the convolutional block
         '''
@@ -256,7 +256,10 @@ class UnetConvBlock(nn.Module):
         # Activation unit
         activ_unit1 = nn.LeakyReLU(0.2)
         # Add batch normalization if necessary
-        self.conv1 = nn.Sequential(conv1, nn.BatchNorm2d(out_size), activ_unit1)
+        if batch_norm:
+            self.conv1 = nn.Sequential(conv1, nn.BatchNorm2d(out_size), activ_unit1)
+        else:
+            self.conv1 = nn.Sequential(conv1, activ_unit1)
 
         # Convolutional layer with OUT_SIZE --> OUT_SIZE
         conv2 = nn.Conv2d(in_channels=out_size, out_channels=out_size, kernel_size=3, stride=stride,
@@ -265,8 +268,10 @@ class UnetConvBlock(nn.Module):
         activ_unit2 = nn.LeakyReLU(0.2)
 
         # Add batch normalization
-        self.conv2 = nn.Sequential(conv2, nn.BatchNorm2d(out_size), activ_unit2)
-
+        if batch_norm:
+            self.conv2 = nn.Sequential(conv2, nn.BatchNorm2d(out_size), activ_unit2)
+        else:
+            self.conv2 = nn.Sequential(conv2, activ_unit2)
         # Dropout
         if dropout > 0.0:
             self.drop = nn.Dropout(dropout)
@@ -291,7 +296,7 @@ class UnetDeSingleConvBlock(nn.Module):
     Basic Dropout (optional)
     '''
 
-    def __init__(self, in_size, out_size, dropout=0.0, stride=1, padding=1):
+    def __init__(self, in_size, out_size, dropout=0.0, stride=1, padding=1, batch_norm = True ):
         '''
         Constructor of the convolutional block
         '''
@@ -302,7 +307,10 @@ class UnetDeSingleConvBlock(nn.Module):
         # Activation unit
         activ_unit1 = nn.LeakyReLU(0.2)
         # Add batch normalization if necessary
-        self.conv1 = nn.Sequential(conv1, nn.BatchNorm2d(out_size), activ_unit1)
+        if batch_norm:
+            self.conv1 = nn.Sequential(conv1, nn.BatchNorm2d(out_size), activ_unit1)
+        else:
+            self.conv1 = nn.Sequential(conv1, activ_unit1)
 
         # Dropout
         if dropout > 0.0:
@@ -825,14 +833,19 @@ class depth_discriminator(nn.Module):
 class depth_generator_UNet(nn.Module):
     # Network Architecture is exactly same as in infoGAN (https://arxiv.org/abs/1606.03657)
     # Architecture : FC1024_BR-FC7x7x128_BR-(64)4dc2s_BR-(1)4dc2s_S
-    def __init__(self, input_dim=4, output_dim=1, class_num=10, expand_net=3):
+    def __init__(self, input_dim=4, output_dim=1, class_num=10, expand_net=3, depth=True):
         super(depth_generator_UNet, self).__init__()
-        self.input_dim = input_dim + 1
-        self.output_dim = output_dim  # por depth +1 (al final no)
+
+        if depth:
+          self.input_dim = input_dim + 1
+        else:
+          self.input_dim = input_dim
+        self.output_dim = output_dim 
         self.class_num = class_num
         # print ("self.output_dim", self.output_dim)
 
         self.expandNet = expand_net  # 5
+        self.depth = depth
 
         # Downsampling
         self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet))
@@ -849,10 +862,11 @@ class depth_generator_UNet(nn.Module):
         self.up3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
         self.last = lastBlock(8, self.output_dim)
 
-        self.upDep1 = UpBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), pow(2, self.expandNet + 1))
-        self.upDep2 = UpBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 1), pow(2, self.expandNet))
-        self.upDep3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
-        self.lastDep = lastBlock(8, 1)
+        if depth:
+          self.upDep1 = UpBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), pow(2, self.expandNet + 1))
+          self.upDep2 = UpBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 1), pow(2, self.expandNet))
+          self.upDep3 = UpBlock(pow(2, self.expandNet), pow(2, self.expandNet), 8)
+          self.lastDep = lastBlock(8, 1)
 
 
 
@@ -868,10 +882,13 @@ class depth_generator_UNet(nn.Module):
         #print (imz.shape)
         #print (imz)
         #sdadsadas
-
-        x = torch.cat([im, imDep], 1)
+        if self.depth:
+          x = torch.cat([im, imDep], 1)
+          x = torch.cat((x, clase), 1)
+        else:
+          x = torch.cat((im, clase), 1)
         ##unir layer el rgb de la imagen
-        x = torch.cat((x, clase), 1)
+        
 
         x1 = self.conv1(x)
         x2 = self.conv2(x1)  # self.maxpool1(x1))
@@ -884,21 +901,21 @@ class depth_generator_UNet(nn.Module):
         #x = changeDim(x, im)
         x = self.last(x)
 
-        dep = self.upDep1(x4, x3)
-        dep = self.upDep2(dep, x2)
-        dep = self.upDep3(dep, x1)
-        # x = changeDim(x, im)
-        dep = self.lastDep(dep)
+        #x = x[:, :3, :, :] #cambio teorico
 
-        #print(x.shape)
-        #dep = x[:,3,:,:].squeeze().unsqueeze(0).transpose(0,1)
-        x = x[:, :3, :, :]
-
-        return x, dep
+        if self.depth:
+          dep = self.upDep1(x4, x3)
+          dep = self.upDep2(dep, x2)
+          dep = self.upDep3(dep, x1)
+          # x = changeDim(x, im)
+          dep = self.lastDep(dep)
+          return x, dep
+        else:
+          return x,imDep
 
 
 class depth_discriminator_UNet(nn.Module):
-    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=10, expand_net=2):
+    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=2, expand_net=2):
         super(depth_discriminator_UNet, self).__init__()
         self.input_dim = input_dim * 2 + 1
 
@@ -978,7 +995,7 @@ class depth_discriminator_UNet(nn.Module):
         return d, c, features
 
 class depth_discriminator_noclass_UNet(nn.Module):
-    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=2, expand_net=2):
+    def __init__(self, input_dim=1, output_dim=1, input_shape=[8, 7, 128, 128], class_num=2, expand_net=2, depth=True, wgan = False):
         super(depth_discriminator_noclass_UNet, self).__init__()
 
         #discriminator_UNet.__init__(self, input_dim=self.input_dim, output_dim=output_dim, input_shape=input_shape,
@@ -988,29 +1005,45 @@ class depth_discriminator_noclass_UNet(nn.Module):
         self.input_shape = list(input_shape)
         self.class_num = class_num
         self.expandNet = expand_net
+        self.depth = depth
+        self.wgan = wgan
 
-        self.input_dim = input_dim * 2 + 2 # ya que le doy el origen + Dep + class
-        self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet), stride=1, dropout=0.3)
-        self.conv2 = UnetConvBlock(pow(2, self.expandNet), pow(2, self.expandNet + 1), stride=2, dropout=0.2)
-        self.conv3 = UnetConvBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 2), stride=2, dropout=0.2)
-        self.conv4 = UnetDeSingleConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), stride=2,
-                                           dropout=0.3)
+        if depth:
+          self.input_dim = input_dim * 2 + 2 # ya que le doy el origen + Dep + class
+        else:
+          self.input_dim = input_dim * 2 + 1 # ya que le doy el origen + class
+        self.conv1 = UnetConvBlock(self.input_dim, pow(2, self.expandNet), stride=1, dropout=0.0, batch_norm = False )
+        self.conv2 = UnetConvBlock(pow(2, self.expandNet), pow(2, self.expandNet + 1), stride=2, dropout=0.0, batch_norm = False )
+        self.conv3 = UnetConvBlock(pow(2, self.expandNet + 1), pow(2, self.expandNet + 2), stride=2, dropout=0.0, batch_norm = False )
+        self.conv4 = UnetConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 3), stride=2, dropout=0.0, batch_norm = False )
+        self.conv5 = UnetDeSingleConvBlock(pow(2, self.expandNet + 3), pow(2, self.expandNet + 2), stride=1, dropout=0.0, batch_norm = False )
+
+        self.lastconvs = []
+        imagesize = self.input_shape[2] / 8
+        while imagesize > 4:
+          self.lastconvs.append(UnetDeSingleConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 2), stride=2, dropout=0.0, batch_norm = False ))
+          imagesize = imagesize/2
+        else:
+          self.lastconvs.append(UnetDeSingleConvBlock(pow(2, self.expandNet + 2), pow(2, self.expandNet + 1), stride=1, dropout=0.0, batch_norm = False ))
 
         self.input_shape[1] = self.input_dim
         self.n_size = self._get_conv_output(self.input_shape)
 
+        for layer in self.lastconvs:
+          layer = layer.cuda()
+
         self.fc1 = nn.Sequential(
-            nn.Linear(self.n_size, 1024),
+            nn.Linear(self.n_size, 256),
         )
 
         self.BnLr = nn.Sequential(
-            nn.BatchNorm1d(1024),
+            nn.BatchNorm1d(256),
             nn.LeakyReLU(0.2),
         )
 
         self.dc = nn.Sequential(
-            nn.Linear(1024, self.output_dim),
-            nn.Sigmoid(),
+            nn.Linear(256, self.output_dim),
+            #nn.Sigmoid(),
         )
 
         utils.initialize_weights(self)
@@ -1023,6 +1056,9 @@ class depth_discriminator_noclass_UNet(nn.Module):
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
+        x = self.conv5(x)
+        for layer in self.lastconvs:
+          x = layer(x)
         x = x.view(x.size(0), -1)
         return x.shape[1]
 
@@ -1041,14 +1077,18 @@ class depth_discriminator_noclass_UNet(nn.Module):
         x = torch.cat((x, clase), 1)
 
         x = torch.cat((x, origen), 1)
-        x = torch.cat((x, dep), 1)
+        if self.depth:
+          x = torch.cat((x, dep), 1)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
-        x = x.view(x.size(0), -1)
-        features = self.fc1(x)
-        x = self.BnLr(features)
+        x = self.conv5(x)
+        for layer in self.lastconvs:
+          x = layer(x)
+        feature_vector = x.view(x.size(0), -1)
+        x = self.fc1(feature_vector)
+        x = self.BnLr(x)
         d = self.dc(x)
 
-        return d, features
+        return d, feature_vector

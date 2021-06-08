@@ -37,13 +37,12 @@ class WiggleGAN(object):
         self.cantImages = args.cIm
         self.visdom = args.visdom
         self.lambdaL1 = args.lambdaL1
+        self.depth = args.depth
 
         self.clipping = args.clipping
         self.WGAN = False
         if (self.clipping > 0):
             self.WGAN = True
-
-
 
         self.seed = str(random.randint(0, 99999))
         self.seed_load = args.seedLoad
@@ -70,6 +69,8 @@ class WiggleGAN(object):
 
         # load dataset
 
+        self.onlyGen = args.lrD <= 0 
+
         if not self.wiggle:
             self.data_loader = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='train',
                                       trans=not self.CR)
@@ -81,23 +82,25 @@ class WiggleGAN(object):
 
             data = self.data_loader.__iter__().__next__().get('x_im')
 
-            self.D = depth_discriminator_noclass_UNet(input_dim=3, output_dim=1, input_shape=data.shape,
-                                                      class_num=self.class_num,
-                                                      expand_net=self.expandDis)
-            self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
+
+            if not self.onlyGen:
+              self.D = depth_discriminator_noclass_UNet(input_dim=3, output_dim=1, input_shape=data.shape,
+                                                        class_num=self.class_num,
+                                                        expand_net=self.expandDis, depth = self.depth, wgan = self.WGAN)
+              self.D_optimizer = optim.Adam(self.D.parameters(), lr=args.lrD, betas=(args.beta1, args.beta2))
 
         self.data_Test = dataloader(self.dataset, self.input_size, self.batch_size, self.imageDim, split='test')
         self.dataprint_test = self.data_Test.__iter__().__next__()
 
         # networks init
 
-        self.G = depth_generator_UNet(input_dim=4, output_dim=3, class_num=self.class_num, expand_net=self.expandGen)
+        self.G = depth_generator_UNet(input_dim=4, output_dim=3, class_num=self.class_num, expand_net=self.expandGen, depth = self.depth)
         self.G_optimizer = optim.Adam(self.G.parameters(), lr=args.lrG, betas=(args.beta1, args.beta2))
 
 
         if self.gpu_mode:
             self.G.cuda()
-            if not self.wiggle:
+            if not self.wiggle and not self.onlyGen:
                 self.D.cuda()
             self.BCE_loss = nn.BCELoss().cuda()
             self.CE_loss = nn.CrossEntropyLoss().cuda()
@@ -113,7 +116,7 @@ class WiggleGAN(object):
 
         print('---------- Networks architecture -------------')
         utils.print_network(self.G)
-        if not self.wiggle:
+        if not self.wiggle and not self.onlyGen:
             utils.print_network(self.D)
         print('-----------------------------------------------')
 
@@ -162,10 +165,12 @@ class WiggleGAN(object):
 
         self.details_hist['G_T_Comp_im'] = []
         self.details_hist['G_T_BCE_fake_real'] = []
+        self.details_hist['G_T_Cycle'] = []
         self.details_hist['G_zCR'] = []
 
         self.details_hist['G_V_Comp_im'] = []
         self.details_hist['G_V_BCE_fake_real'] = []
+        self.details_hist['G_V_Cycle'] = []
 
         self.details_hist['D_T_BCE_fake_real_R'] = []
         self.details_hist['D_T_BCE_fake_real_F'] = []
@@ -186,8 +191,6 @@ class WiggleGAN(object):
 
         iterIniValidation = 0
         iterFinValidation = 0
-
-        self.D.train()
 
         maxIter = self.data_loader.dataset.__len__() // self.batch_size
         maxIterVal = self.data_Validation.dataset.__len__() // self.batch_size
@@ -212,7 +215,9 @@ class WiggleGAN(object):
                 ventaja = False
 
             self.G.train()
-            self.D.train()
+
+            if not self.onlyGen:
+              self.D.train()
             epoch_start_time = time.time()
 
 
@@ -245,7 +250,7 @@ class WiggleGAN(object):
                     x_im, y_, y_im, x_dep, y_dep = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
 
                 # update D network
-                if not ventaja:
+                if not ventaja and not self.onlyGen:
 
                     for p in self.D.parameters():  # reset requires_grad
                         p.requires_grad = True  # they are set to False below in netG update
@@ -262,19 +267,17 @@ class WiggleGAN(object):
                     # Losses
                     #  GAN Loss
                     if (self.WGAN): # de WGAN
-                        D_loss_real_fake_R_positive = torch.mean(D_real)
+                        D_loss_real_fake_R = - torch.mean(D_real)
                         D_loss_real_fake_F = torch.mean(D_fake)
-                        D_loss_real_fake_R = - D_loss_real_fake_R_positive
+                        #D_loss_real_fake_R = - D_loss_real_fake_R_positive
 
                     else:       # de Gan normal
                         D_loss_real_fake_R = self.BCEWithLogitsLoss(D_real, self.y_real_)
                         D_loss_real_fake_F = self.BCEWithLogitsLoss(D_fake, self.y_fake_)
 
-                    D_loss_real_fake = D_loss_real_fake_F + D_loss_real_fake_R
+                    D_loss = D_loss_real_fake_F + D_loss_real_fake_R
 
-                    D_loss = D_loss_real_fake
-
-                    if (self.CR):
+                    if self.CR:
 
                         # Fake Augmented Images bCR
                         x_im_aug_bCR, G_aug_bCR = augmentData(x_im_vanilla, G_.data.cpu())
@@ -298,28 +301,29 @@ class WiggleGAN(object):
                         D_zCR = self.MSE(D_features_fake, D_features_fake_aug_zCR) * self.zDisFactor
 
                         D_CR_losses = D_bCR + D_zCR
-                        D_CR_losses.backward(retain_graph=True)
+                        #D_CR_losses.backward(retain_graph=True)
 
-                        D_loss = D_loss_real_fake + D_CR_losses
+                        D_loss += D_CR_losses
 
-                        self.details_hist['D_bCR'].append(D_bCR.item())
-                        self.details_hist['D_zCR'].append(D_zCR.item())
+                        self.details_hist['D_bCR'].append(D_bCR.detach().item())
+                        self.details_hist['D_zCR'].append(D_zCR.detach().item())
                     else:
                         self.details_hist['D_bCR'].append(0)
                         self.details_hist['D_zCR'].append(0)
 
-                    self.train_hist['D_loss_train'].append(D_loss.item())
-                    self.details_hist['D_T_BCE_fake_real_R'].append(D_loss_real_fake_R.item())
-                    self.details_hist['D_T_BCE_fake_real_F'].append(D_loss_real_fake_F.item())
-                    visLossDTest.plot('Discriminator_losses',
+                    self.train_hist['D_loss_train'].append(D_loss.detach().item())
+                    self.details_hist['D_T_BCE_fake_real_R'].append(D_loss_real_fake_R.detach().item())
+                    self.details_hist['D_T_BCE_fake_real_F'].append(D_loss_real_fake_F.detach().item())
+                    if self.visdom:
+                      visLossDTest.plot('Discriminator_losses',
                                            ['D_T_BCE_fake_real_R','D_T_BCE_fake_real_F', 'D_bCR', 'D_zCR'], 'train',
                                            self.details_hist)
-
-                    D_loss_real_fake_F.backward(retain_graph=True)
-                    if(self.WGAN):
-                        D_loss_real_fake_R_positive.backward(mone)
-                    else:
-                        D_loss_real_fake_R.backward()
+                    #if self.WGAN:
+                    #    D_loss_real_fake_F.backward(retain_graph=True)
+                    #    D_loss_real_fake_R_positive.backward(mone)
+                    #else:
+                    #    D_loss_real_fake.backward()
+                    D_loss.backward()
 
                     self.D_optimizer.step()
 
@@ -335,7 +339,7 @@ class WiggleGAN(object):
 
                 G_, G_dep = self.G(y_, x_im, x_dep)
 
-                if not ventaja:
+                if not ventaja and not self.onlyGen:
                     for p in self.D.parameters():
                         p.requires_grad = False  # to avoid computation
 
@@ -351,9 +355,18 @@ class WiggleGAN(object):
                     #G_join = torch.cat((G_, G_dep), 1)
                     #y_join = torch.cat((y_im, y_dep), 1)
 
-                    G_loss_Comp = self.L1(G_, y_im) + self.L1(G_dep, y_dep)
+                    G_loss_Comp = self.L1(G_, y_im) 
+                    if self.depth:
+                      G_loss_Comp += self.L1(G_dep, y_dep)
 
                     G_loss_Dif_Comp = G_loss_Comp * self.lambdaL1
+
+                    reverse_y = - y_ + 1
+                    reverse_G, reverse_G_dep = self.G(reverse_y, G_, G_dep)
+                    G_loss_Cycle = self.L1(reverse_G, x_im) 
+                    if self.depth:
+                      G_loss_Cycle += self.L1(reverse_G_dep, x_dep) 
+                    G_loss_Cycle = G_loss_Cycle * self.lambdaL1/2
 
 
                     if (self.CR):
@@ -372,42 +385,52 @@ class WiggleGAN(object):
                         #y_aug_join = torch.cat((y_im_aug, y_dep), 1)
                         #G_aug_join = torch.cat((G_aug, G_dep_aug), 1)
 
-                        G_loss_Comp_Aug = self.L1(G_aug, y_im_aug) + self.L1(G_dep_aug, y_dep)
+                        G_loss_Comp_Aug = self.L1(G_aug, y_im_aug)
+                        if self.depth:
+                           G_loss_Comp_Aug += self.L1(G_dep_aug, y_dep)
                         G_loss_Dif_Comp = (G_loss_Comp + G_loss_Comp_Aug)/2 * self.lambdaL1
 
 
-                    G_loss = G_loss_fake + G_loss_Dif_Comp
+                    G_loss = G_loss_fake + G_loss_Dif_Comp + G_loss_Cycle
 
-                    self.details_hist['G_T_BCE_fake_real'].append(G_loss_fake.item())
-                    self.details_hist['G_T_Comp_im'].append(G_loss_Dif_Comp.item())
+                    self.details_hist['G_T_BCE_fake_real'].append(G_loss_fake.detach().item())
+                    self.details_hist['G_T_Comp_im'].append(G_loss_Dif_Comp.detach().item())
+                    self.details_hist['G_T_Cycle'].append(G_loss_Cycle.detach().item())
                     self.details_hist['G_zCR'].append(0)
 
 
                 else:
-                    G_join = torch.cat((G_, G_dep), 1)
-                    y_join = torch.cat((y_im, y_dep), 1)
-                    G_loss = self.L1(G_join, y_join) * self.lambdaL1
-                    self.details_hist['G_T_Comp_im'].append(G_loss.item())
+
+                    G_loss = self.L1(G_, y_im) 
+                    if self.depth:
+                      G_loss += self.L1(G_dep, y_dep)
+                    G_loss = G_loss * self.lambdaL1
+                    self.details_hist['G_T_Comp_im'].append(G_loss.detach().item())
                     self.details_hist['G_T_BCE_fake_real'].append(0)
+                    self.details_hist['G_T_Cycle'].append(0)
                     self.details_hist['G_zCR'].append(0)
 
                 G_loss.backward()
                 self.G_optimizer.step()
-                self.train_hist['G_loss_train'].append(G_loss.item())
+                self.train_hist['G_loss_train'].append(G_loss.detach().item())
+                if self.onlyGen:
+                  self.train_hist['D_loss_train'].append(0)
 
                 iterFinTrain += 1
 
-                visLossGTest.plot('Generator_losses',
-                                      ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_zCR'],
+                if self.visdom:
+                  visLossGTest.plot('Generator_losses',
+                                      ['G_T_Comp_im', 'G_T_BCE_fake_real', 'G_zCR','G_T_Cycle'],
                                        'train', self.details_hist)
 
-                vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
+                  vis.plot('loss', ['D_loss_train', 'G_loss_train'], 'train', self.train_hist)
 
             ##################Validation####################################
             with torch.no_grad():
 
                 self.G.eval()
-                self.D.eval()
+                if not self.onlyGen:
+                  self.D.eval()
 
                 for iter, data in enumerate(self.data_Validation):
 
@@ -439,7 +462,7 @@ class WiggleGAN(object):
                         x_im, y_, y_im, x_dep, y_dep = x_im.cuda(), y_.cuda(), y_im.cuda(), x_dep.cuda(), y_dep.cuda()
                     # D network
 
-                    if not ventaja:
+                    if not ventaja and not self.onlyGen:
                         # Real Images
                         D_real, _ = self.D(y_im, x_im, y_dep,y_)  ## Es la funcion forward `` g(z) x
 
@@ -463,7 +486,8 @@ class WiggleGAN(object):
                         self.train_hist['D_loss_Validation'].append(D_loss.item())
                         self.details_hist['D_V_BCE_fake_real_R'].append(D_loss_real_fake_R.item())
                         self.details_hist['D_V_BCE_fake_real_F'].append(D_loss_real_fake_F.item())
-                        visLossDValidation.plot('Discriminator_losses',
+                        if self.visdom:
+                          visLossDValidation.plot('Discriminator_losses',
                                                      ['D_V_BCE_fake_real_R','D_V_BCE_fake_real_F'], 'Validation',
                                                      self.details_hist)
 
@@ -471,7 +495,7 @@ class WiggleGAN(object):
 
                     G_, G_dep = self.G(y_, x_im, x_dep)
 
-                    if not ventaja:
+                    if not ventaja and not self.onlyGen:
                         # Fake images
                         D_fake,_ = self.D(G_, x_im, G_dep, y_)
 
@@ -487,31 +511,48 @@ class WiggleGAN(object):
                         #G_join = torch.cat((G_, G_dep), 1)
                         #y_join = torch.cat((y_im, y_dep), 1)
 
-                        G_loss_Comp = (self.L1(G_, y_im) + self.L1(G_dep, y_dep)) * self.lambdaL1
-                        G_loss += G_loss_Comp
+                        G_loss_Comp = self.L1(G_, y_im)
+                        if self.depth:
+                          G_loss_Comp += self.L1(G_dep, y_dep)
+                        G_loss_Comp = G_loss_Comp * self.lambdaL1
+
+                        reverse_y = - y_ + 1                  
+                        reverse_G, reverse_G_dep = self.G(reverse_y, G_, G_dep)
+                        G_loss_Cycle = self.L1(reverse_G, x_im) 
+                        if self.depth:
+                          G_loss_Cycle += self.L1(reverse_G_dep, x_dep) 
+                        G_loss_Cycle = G_loss_Cycle * self.lambdaL1/2
+
+                        G_loss += G_loss_Comp + G_loss_Cycle 
+
 
                         self.details_hist['G_V_Comp_im'].append(G_loss_Comp.item())
+                        self.details_hist['G_V_Cycle'].append(G_loss_Cycle.detach().item())
 
                     else:
-                        G_join = torch.cat((G_, G_dep), 1)
-                        y_join = torch.cat((y_im, y_dep), 1)
-                        G_loss = self.L1(G_join, y_join) * self.lambdaL1
+                        G_loss = self.L1(G_, y_im) 
+                        if self.depth:
+                          G_loss += self.L1(G_dep, y_dep)
+                        G_loss = G_loss * self.lambdaL1
                         self.details_hist['G_V_Comp_im'].append(G_loss.item())
                         self.details_hist['G_V_BCE_fake_real'].append(0)
-                        self.details_hist['G_V_CE_Class'].append(0)
+                        self.details_hist['G_V_Cycle'].append(0)
 
                     self.train_hist['G_loss_Validation'].append(G_loss.item())
+                    if self.onlyGen:
+                      self.train_hist['D_loss_Validation'].append(0)
 
 
                     iterFinValidation += 1
-                    visLossGValidation.plot('Generator_losses', ['G_V_Comp_im', 'G_V_BCE_fake_real'],
+                    if self.visdom:
+                      visLossGValidation.plot('Generator_losses', ['G_V_Comp_im', 'G_V_BCE_fake_real','G_V_Cycle'],
                                                  'Validation', self.details_hist)
-                    visValidation.plot('loss', ['D_loss_Validation', 'G_loss_Validation'], 'Validation',
+                      visValidation.plot('loss', ['D_loss_Validation', 'G_loss_Validation'], 'Validation',
                                            self.train_hist)
 
             ##Vis por epoch
 
-            if ventaja:
+            if ventaja or self.onlyGen:
                 self.epoch_hist['D_loss_train'].append(0)
                 self.epoch_hist['D_loss_Validation'].append(0)
             else:
@@ -523,8 +564,8 @@ class WiggleGAN(object):
             self.epoch_hist['G_loss_train'].append(mean(self.train_hist['G_loss_train'][iterIniTrain:iterFinTrain]))
             self.epoch_hist['G_loss_Validation'].append(
                 mean(self.train_hist['G_loss_Validation'][iterIniValidation:iterFinValidation]))
-
-            visEpoch.plot('epoch', epoch,
+            if self.visdom:
+              visEpoch.plot('epoch', epoch,
                                ['D_loss_train', 'G_loss_train', 'D_loss_Validation', 'G_loss_Validation'],
                                self.epoch_hist)
 
@@ -537,10 +578,12 @@ class WiggleGAN(object):
 
             self.details_hist['G_T_Comp_im'] = self.details_hist['G_T_Comp_im'][-1:]
             self.details_hist['G_T_BCE_fake_real'] = self.details_hist['G_T_BCE_fake_real'][-1:]
+            self.details_hist['G_T_Cycle'] = self.details_hist['G_T_Cycle'][-1:]
             self.details_hist['G_zCR'] = self.details_hist['G_zCR'][-1:]
 
             self.details_hist['G_V_Comp_im'] = self.details_hist['G_V_Comp_im'][-1:]
             self.details_hist['G_V_BCE_fake_real'] = self.details_hist['G_V_BCE_fake_real'][-1:]
+            self.details_hist['G_V_Cycle'] = self.details_hist['G_V_Cycle'][-1:]
 
             self.details_hist['D_T_BCE_fake_real_R'] = self.details_hist['D_T_BCE_fake_real_R'][-1:]
             self.details_hist['D_T_BCE_fake_real_F'] = self.details_hist['D_T_BCE_fake_real_F'][-1:]
@@ -557,11 +600,18 @@ class WiggleGAN(object):
             iterFinValidation = 1
 
             self.train_hist['per_epoch_time'].append(time.time() - epoch_start_time)
+
             if epoch % 10 == 0:
                 self.save(str(epoch))
                 with torch.no_grad():
-                    self.visualize_results(epoch, dataprint=self.dataprint, visual=visImages)
-                    self.visualize_results(epoch, dataprint=self.dataprint_test, visual=visImagesTest)
+                    if self.visdom:
+                      self.visualize_results(epoch, dataprint=self.dataprint, visual=visImages)
+                      self.visualize_results(epoch, dataprint=self.dataprint_test, visual=visImagesTest)
+                    else:
+                      imageName = self.model_name + '_' + 'Train' + '_' + str(self.seed) + '_' + str(epoch)
+                      self.visualize_results(epoch, dataprint=self.dataprint, name= imageName)
+                      self.visualize_results(epoch, dataprint=self.dataprint_test, name= imageName)
+
 
         self.train_hist['total_time'].append(time.time() - start_time)
         print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
@@ -573,7 +623,7 @@ class WiggleGAN(object):
         #                         self.epoch)
         #utils.loss_plot(self.train_hist, os.path.join(self.save_dir, self.dataset, self.model_name), self.model_name)
 
-    def visualize_results(self, epoch, dataprint, visual, name= "test"):
+    def visualize_results(self, epoch, dataprint, visual="", name= "test"):
         with torch.no_grad():
             self.G.eval()
 
@@ -603,11 +653,12 @@ class WiggleGAN(object):
                 x_im_input = x_im.repeat(2, 1, 1, 1)
                 x_dep_input = x_dep.repeat(2, 1, 1, 1)
 
+                sizeImage = x_im.shape[2]
 
-                sample_y_ = torch.zeros((self.class_num, 1, self.imageDim, self.imageDim))
+                sample_y_ = torch.zeros((self.class_num, 1, sizeImage, sizeImage))
                 for i in range(self.class_num):
                     if(int(i % self.class_num) == 1):
-                        sample_y_[i] = torch.ones(( 1, self.imageDim, self.imageDim))
+                        sample_y_[i] = torch.ones(( 1, sizeImage, sizeImage))
 
                 if self.gpu_mode:
                     sample_y_, x_im_input, x_dep_input = sample_y_.cuda(), x_im_input.cuda(), x_dep_input.cuda()
@@ -719,7 +770,8 @@ class WiggleGAN(object):
 
         torch.save(self.G.state_dict(),
                    os.path.join(save_dir, self.model_name + '_' + self.seed + '_' + epoch + '_G.pkl'))
-        torch.save(self.D.state_dict(),
+        if not self.onlyGen:
+          torch.save(self.D.state_dict(),
                    os.path.join(save_dir, self.model_name + '_' + self.seed + '_' + epoch + '_D.pkl'))
 
         with open(os.path.join(save_dir, self.model_name + '_history_ '+self.seed+'.pkl'), 'wb') as f:

@@ -11,6 +11,7 @@ import random
 
 def save_wiggle(images, rows=1, name="test"):
 
+
     width = images[0].shape[1]
     height = images[0].shape[2]
     columns = int(len(images)/rows)

@@ -42,10 +42,10 @@ def dataloader(dataset, input_size, batch_size,dim,split='train', trans=False):
     elif dataset == '4cam':
         if split != 'test':
             cams = ImagesDataset(root_dir=os.getcwd() + '/Images/ActualDataset', dim=dim, name=split, transform=trans)
-            return DataLoader(cams, batch_size=batch_size, shuffle=True, num_workers=3)
+            return DataLoader(cams, batch_size=batch_size, shuffle=True, num_workers=0)
         else:
             cams = TestingDataset(root_dir=os.getcwd() + '/Images/Input-Test', dim=dim, name=split)
-            return DataLoader(cams, batch_size=batch_size, shuffle=False, num_workers=3)
+            return DataLoader(cams, batch_size=batch_size, shuffle=False, num_workers=0)
 
     return data_loader
 

@@ -12,7 +12,7 @@ def parse_args():
     desc = "Pytorch implementation of GAN collections"
     parser = argparse.ArgumentParser(description=desc)
 
-    parser.add_argument('--gan_type', type=str, default='MyGAN',
+    parser.add_argument('--gan_type', type=str, default='WiggleGAN',
                         choices=['MyACGAN', 'MyGAN', 'WiggleGAN'],
                         help='The type of GAN')
     parser.add_argument('--dataset', type=str, default='4cam',

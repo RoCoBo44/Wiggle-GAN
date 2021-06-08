@@ -15,7 +15,7 @@ In our solution we propose the use of a neural network to generate a new image g
 
 <img src="/git_images/Architectures/general_solution.png" />
 
-To achieve greater results we implemented a Wasserstein Generative Adversarial Network (WGAN) with Consistency Regularization (CR) and a L1 loss between the false image and expected one. The final loss can be seen in the image below:
+To achieve greater results we implemented a Wasserstein Generative Adversarial Network (WGAN) with Consistency Regularization (CR) and a L1 loss between the false image and expected one. The final loss function can be seen in the image below:
 
 <img src="/git_images/Losses/big_loss.png" />
 
@@ -23,7 +23,8 @@ Moreover, our generator is based on the U-Net architecture but we added another 
 
 <img src="/git_images/Architectures/generator.png" />
 
-The full Wiggle-GAN architecture can be seen in the next image, the black box represents the generator and T() means the transformation made to augmentate the data (for the CR loss)
+The full Wiggle-GAN architecture can be seen in the next image.
+The black box represents the generator that we previusly seen and T() means the transformation made to augmentate the data (for the CR loss)
 
 <img src="/git_images/Architectures/critic.png" />
 
